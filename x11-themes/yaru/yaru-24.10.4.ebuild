@@ -4,8 +4,8 @@
 
 EAPI=8
 
-inherit meson git-r3 gnome2-util xdg-utils
-#inherit meson git-r3 xdg-utils
+#inherit meson git-r3 gnome2-util xdg-utils
+inherit meson git-r3 xdg-utils
 
 DESCRIPTION="Ubuntu community theme \"yaru\"."
 HOMEPAGE="https://github.com/ubuntu/yaru"
