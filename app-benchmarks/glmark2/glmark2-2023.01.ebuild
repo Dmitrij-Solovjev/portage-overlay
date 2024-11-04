@@ -4,11 +4,13 @@
 
 EAPI=8
 
+
 inherit meson
 
 DESCRIPTION="glmark2 is an OpenGL 2.0 and ES 2.0 benchmark"
 HOMEPAGE="https://github.com/glmark2/glmark2"
 SRC_URI=""
+AUTHOR="glmark2"
 
 EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
 EGIT_COMMIT="${PV}"
