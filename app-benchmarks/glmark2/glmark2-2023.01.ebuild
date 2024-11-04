@@ -12,8 +12,11 @@ HOMEPAGE="https://github.com/glmark2/glmark2"
 SRC_URI=""
 AUTHOR="glmark2"
 
-EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
-EGIT_COMMIT="${PV}"
+#EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
+EGIT_REPO_URI="https://github.com/glmark2/glmark2.git"
+#EGIT_COMMIT="${PV}"
+EGIT_COMMIT="2023.01"
+
 
 LICENSE="GPL-3"
 SLOT="0"
