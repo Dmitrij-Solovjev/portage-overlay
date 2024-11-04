@@ -5,18 +5,15 @@
 EAPI=8
 
 
-inherit meson
+inherit meson git-r3
 
 DESCRIPTION="glmark2 is an OpenGL 2.0 and ES 2.0 benchmark"
 HOMEPAGE="https://github.com/glmark2/glmark2"
 SRC_URI=""
 AUTHOR="glmark2"
 
-#EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
-EGIT_REPO_URI="https://github.com/glmark2/glmark2.git"
-#EGIT_COMMIT="${PV}"
-EGIT_COMMIT="2023.01"
-
+EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
+EGIT_COMMIT="${PV}"
 
 LICENSE="GPL-3"
 SLOT="0"
