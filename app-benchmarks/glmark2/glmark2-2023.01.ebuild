@@ -2,17 +2,20 @@
 # Copyright 2023 Aliaksei Urbanski
 # Distributed under the terms of the GNU General Public License v2
 
-EAPI=7
+EAPI=8
 
 inherit meson
 
 DESCRIPTION="glmark2 is an OpenGL 2.0 and ES 2.0 benchmark"
 HOMEPAGE="https://github.com/glmark2/glmark2"
-SRC_URI="https://github.com/glmark2/glmark2/archive/${PV}.tar.gz -> ${P}.tar.gz"
+SRC_URI=""
+
+EGIT_REPO_URI="https://github.com/${AUTHOR}/${PN}.git"
+EGIT_COMMIT="${PV}"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~amd64 ~arm ~x86 ~arm64"
+KEYWORDS="amd64 ~arm ~x86 arm64"
 IUSE="+drm gles2 +opengl wayland -X"
 
 RDEPEND="
