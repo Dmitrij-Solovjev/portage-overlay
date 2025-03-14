@@ -44,8 +44,33 @@ src_configure() {
 }
 
 src_install() {
-	dostrip -x "usr/lib/x86_64-linux-gnu/*"
+    # Установка бинарного файла
+    mkdir -p "${D}/usr/bin/box"
+    dosbin "${S}/box64" "${D}/usr/bin/box/box64"
+
+    # Установка дополнительных файлов
+    mkdir -p "${D}/usr/lib/box64-x86-64-linux-gnu"
+    cp -r "${S}/lib/." "${D}/usr/lib/box64-x86-64-linux-gnu/"
+
+    # Установка конфигурационного файла box64rc
+    mkdir -p "${D}/etc"
+    cp "${S}/box64.box64rc" "${D}/etc/box64.box64rc"
+    chmod 644 "${D}/etc/box64.box64rc"
+
+    # Установка конфигурации binfmt
+    mkdir -p "${D}/etc/binfmt.d"
+    cp "${S}/box64.conf" "${D}/etc/binfmt.d/box64.conf"
+    chmod 644 "${D}/etc/binfmt.d/box64.conf"
+
+    # Перезагрузка binfmt (если systemd доступен)
+    if command -v systemctl &>/dev/null; then
+        systemctl restart systemd-binfmt
+    fi
+
+    # Очистка отладочных символов
+    dostrip -x "usr/lib/x86_64-linux-gnu/*"
 }
+
 
 pkg_postinst() {
 	optfeature "OpenGL for GLES devices" \
