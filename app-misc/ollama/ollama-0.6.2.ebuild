@@ -57,7 +57,7 @@ COMMON_DEPEND="
 
 DEPEND="
 	${COMMON_DEPEND}
-	>=dev-lang/go-1.23.4
+	>=dev-lang/go-1.24.1
 "
 
 RDEPEND="
