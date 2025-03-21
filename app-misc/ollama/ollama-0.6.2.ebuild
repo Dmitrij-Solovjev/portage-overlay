@@ -81,10 +81,20 @@ PATCHES=(
 src_unpack() {
 	#if [[ "${PV}" == *9999* ]]; then
 	git-r3_src_unpack
-	go-module_live_vendor
+	#go-module_live_vendor
 	#else
 	#	go-module_src_unpack
 	#fi
+}
+
+pkg_pretend() {
+	if use rocm; then
+		ewarn "WARNING: AMD support in this ebuild are experimental"
+		einfo "If you run into issues, especially compiling dev-libs/rocm-opencl-runtime"
+		einfo "you may try the docker image here https://github.com/ROCm/ROCm-docker"
+		einfo "and follow instructions here"
+		einfo "https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html"
+	fi
 }
 
 src_prepare() {
