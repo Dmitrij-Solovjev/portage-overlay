@@ -78,14 +78,6 @@ PATCHES=(
 	"${FILESDIR}/${PN}-0.6.2-include-cstdint.patch"
 )
 
-src_unpack() {
-	#if [[ "${PV}" == *9999* ]]; then
-	git-r3_src_unpack
-	#go-module_live_vendor
-	#else
-	#	go-module_src_unpack
-	#fi
-}
 
 pkg_pretend() {
 	if use rocm; then
