@@ -11,12 +11,12 @@ inherit go-module systemd toolchain-funcs
 DESCRIPTION="Get up and running with Llama 3, Mistral, Gemma, and other language models."
 HOMEPAGE="https://ollama.com"
 
-if [[ ${PV} == *9999* ]]; then
-	inherit git-r3
-	EGIT_REPO_URI="https://github.com/ollama/ollama.git"
-else
-	KEYWORDS="~amd64"
-fi
+SRC_URI="https://github.com/ollama/ollama/archive/refs/tags/v${PV}.tar.gz -> ${P}.gh.tar.gz"
+# https://github.com/Tapchicoma/ebuild-deps/raw/refs/heads/main/go-deps/${PN}-${PV}-deps.tar.xz
+# https://github.com/ollama/ollama/archive/refs/tags/v0.6.2.tar.gz
+
+KEYWORDS="~amd64"
+
 
 LICENSE="MIT"
 SLOT="0"
@@ -65,6 +65,18 @@ RDEPEND="
 	acct-group/${PN}
 	acct-user/${PN}
 "
+
+REQUIRED_USE="
+	cpu_flags_x86_avx2? ( cpu_flags_x86_avx )
+	cpu_flags_x86_avx512f? ( cpu_flags_x86_avx2 )
+	cpu_flags_x86_avx512vbmi? ( cpu_flags_x86_avx512f )
+	cpu_flags_x86_avx512_vnni? ( cpu_flags_x86_avx512f )
+	cpu_flags_x86_avx512_bf16? ( cpu_flags_x86_avx512f )
+"
+
+PATCHES=(
+	"${FILESDIR}/${PN}-0.6.2-include-cstdint.patch"
+)
 
 src_unpack() {
 	if [[ "${PV}" == *9999* ]]; then
