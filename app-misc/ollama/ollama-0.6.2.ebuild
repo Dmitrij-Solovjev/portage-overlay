@@ -79,12 +79,12 @@ PATCHES=(
 )
 
 src_unpack() {
-	if [[ "${PV}" == *9999* ]]; then
-		git-r3_src_unpack
-		go-module_live_vendor
-	else
-		go-module_src_unpack
-	fi
+	#if [[ "${PV}" == *9999* ]]; then
+	git-r3_src_unpack
+	go-module_live_vendor
+	#else
+	#	go-module_src_unpack
+	#fi
 }
 
 src_prepare() {
