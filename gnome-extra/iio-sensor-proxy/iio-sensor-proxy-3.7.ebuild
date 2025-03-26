@@ -32,17 +32,8 @@ DEPEND="
 	virtual/pkgconfig
 "
 
-src_prepare() {
-	if use !systemd ; then
-		# patch out call of systemd directory
-		eapply "${FILESDIR}/no-systemd.patch"
-	fi
-	eapply_user
-}
-
 src_install() {
 	meson_src_install
-	doinitd "${FILESDIR}/iio-sensor-proxy"
 }
 
 pkg_postinst() {
