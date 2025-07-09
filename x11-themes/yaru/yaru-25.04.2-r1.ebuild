@@ -25,7 +25,6 @@ DEPEND="
 "
 RDEPEND="
 	x11-themes/gtk-engines-murrine
-	x11-themes/gnome-themes-standard
 "
 
 src_prepare() {
