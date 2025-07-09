@@ -15,7 +15,7 @@ EGIT_COMMIT="${PV}"
 LICENSE="GPL-3"
 SLOT="0"
 KEYWORDS="~amd64 ~x86 ~arm64"
-IUSE="theme-gtk theme-icons theme-sound"
+IUSE=""
 
 DEPEND="
 	dev-vcs/git
@@ -36,10 +36,7 @@ src_prepare() {
 src_configure() {
 	# Создаем чистую папку для сборки
 	mkdir -p "${WORKDIR}/build" || die
-	meson setup "${WORKDIR}/build" "${S}" \
-		-Dgtk_theme=$(usex theme-gtk true false) \
-		-Dicon_theme=$(usex theme-icons true false) \
-		-Dsound_theme=$(usex theme-sound true false) || die
+	meson setup "${WORKDIR}/build" "${S}" || die
 }
 
 src_compile() {
