@@ -21,6 +21,7 @@ DEPEND="
 	dev-vcs/git
 	dev-build/meson
 	dev-build/ninja
+	dev-lang/sassc
 "
 RDEPEND="
 	x11-themes/gtk-engines-murrine
