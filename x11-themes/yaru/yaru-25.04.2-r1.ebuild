@@ -23,9 +23,7 @@ DEPEND="
 	dev-build/ninja
 	dev-lang/sassc
 "
-RDEPEND="
-	x11-themes/gtk-engines-murrine
-"
+RDEPEND=""
 
 src_prepare() {
 	default
