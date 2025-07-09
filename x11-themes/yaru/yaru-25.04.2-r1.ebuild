@@ -34,14 +34,20 @@ src_prepare() {
 }
 
 src_configure() {
-	meson setup "${BUILD_DIR}" "${S}" \
+	# Создаем чистую папку для сборки
+	mkdir -p "${WORKDIR}/build" || die
+	meson setup "${WORKDIR}/build" "${S}" \
 		-Dgtk_theme=$(usex theme-gtk true false) \
 		-Dicon_theme=$(usex theme-icons true false) \
-		-Dsound_theme=$(usex theme-sound true false)
+		-Dsound_theme=$(usex theme-sound true false) || die
+}
+
+src_compile() {
+	ninja -C "${WORKDIR}/build" || die
 }
 
 src_install() {
-	meson install -C "${BUILD_DIR}" --destdir="${D}" || die
+	ninja -C "${WORKDIR}/build" install --destdir="${D}" || die
 }
 
 pkg_postinst() {
