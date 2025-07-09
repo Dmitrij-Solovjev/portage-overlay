@@ -19,7 +19,7 @@ IUSE="theme-gtk theme-icons theme-sound"
 
 DEPEND="
 	dev-vcs/git
-	>=dev-util/meson-0.50
+	dev-build/meson
 	dev-util/ninja
 	virtual/pkgconfig
 "
