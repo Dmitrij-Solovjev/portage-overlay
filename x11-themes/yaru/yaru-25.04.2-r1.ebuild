@@ -44,7 +44,7 @@ src_compile() {
 }
 
 src_install() {
-	ninja -C "${WORKDIR}/build" install --destdir="${D}" || die
+	DESTDIR="${D}" meson install -C "${WORKDIR}/build" || die
 }
 
 pkg_postinst() {
