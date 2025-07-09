@@ -20,8 +20,7 @@ IUSE="theme-gtk theme-icons theme-sound"
 DEPEND="
 	dev-vcs/git
 	dev-build/meson
-	dev-util/ninja
-	virtual/pkgconfig
+	dev-build/ninja
 "
 RDEPEND="
 	x11-themes/gtk-engines-murrine
