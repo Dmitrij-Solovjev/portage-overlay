@@ -9,7 +9,7 @@ DESCRIPTION="Hangover: run Win64 and Win32 applications on aarch64 Linux"
 HOMEPAGE="https://github.com/AndreRH/hangover"
 EGIT_REPO_URI="https://github.com/AndreRH/hangover.git"
 
-# указываем сабмодули явно, чтобы не дергать git вручную
+# submodules are handled via EGIT_SUBMODULES
 EGIT_SUBMODULES=(
     "wine"
     "fex"
@@ -21,7 +21,7 @@ SLOT="0"
 KEYWORDS="~arm64"
 IUSE="fex box64"
 
-# build-time and run-time deps (keep minimal & realistic)
+# build-time deps
 DEPEND="
     dev-util/llvm-mingw64
     dev-build/cmake
@@ -33,9 +33,8 @@ DEPEND="
     llvm-core/llvm
 "
 
-RDEPEND="
-    virtual/wine
-"
+# runtime deps (do not pull virtual/wine!)
+RDEPEND=""
 
 src_prepare() {
     default || die
@@ -46,10 +45,8 @@ src_configure() {
     mkdir -p "${S}/wine/build" || die
     cd "${S}/wine/build" || die
 
-    # llvm-mingw must be available in PATH
     export PATH="/usr/lib/llvm-mingw/bin:${PATH}"
 
-    # configure Wine for target arches
     ../configure \
         --disable-tests \
         --with-mingw=clang \
