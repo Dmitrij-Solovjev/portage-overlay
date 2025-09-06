@@ -16,7 +16,7 @@ IUSE="fex box64"
 
 # build-time and run-time deps (keep minimal & realistic)
 DEPEND="
-    dev-util/llvm-mingw
+    dev-util/llvm-mingw64
     dev-build/cmake
     dev-build/ninja
     dev-build/make
