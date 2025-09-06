@@ -5,7 +5,7 @@ EAPI=8
 
 inherit git-r3 cmake
 
-DESCRIPTION="Hangover: run Win64 and Win32 applications on aarch64 Linux"
+DESCRIPTION="Hangover: run Win64 and Win32 applications on aarch64 Linux (builds its own Wine)"
 HOMEPAGE="https://github.com/AndreRH/hangover"
 EGIT_REPO_URI="https://github.com/AndreRH/hangover.git"
 
@@ -14,34 +14,24 @@ SLOT="0"
 KEYWORDS="~arm64"
 IUSE="fex box64"
 
-# build-time and run-time deps (keep minimal & realistic)
+# This package builds Wine in-tree. To avoid pulling masked app-emulation/wine-vanilla
+# via virtual/wine, we provide virtual/wine ourselves.
+PROVIDE="virtual/wine"
+
+# build-time deps
 DEPEND="
     dev-util/llvm-mingw64
     dev-build/cmake
-    dev-build/ninja
     dev-build/make
+    dev-build/ninja
+    llvm-core/llvm
+    llvm-core/clang
     sys-devel/gcc
     sys-devel/binutils
-    llvm-core/clang
-    llvm-core/llvm
-
-
 "
 
-#    dev-build/cmake
-#    dev-build/make
-#    dev-build/ninja
-#    dev-util/llvm-mingw64
-#    llvm-core/clang
-#    llvm-core/llvm
-#    sys-devel/gcc
-#    sys-devel/binutils
-#    virtual/wine
-
-
-RDEPEND="
-    virtual/wine
-"
+# runtime deps: none mandatory (we provide Wine)
+RDEPEND=""
 
 src_unpack() {
     git-r3_src_unpack || die
@@ -53,14 +43,11 @@ src_prepare() {
 }
 
 src_configure() {
-    # Wine build directory
     mkdir -p "${S}/wine/build" || die
     cd "${S}/wine/build" || die
 
-    # llvm-mingw must be available in PATH
     export PATH="/usr/lib/llvm-mingw/bin:${PATH}"
 
-    # configure Wine for target arches
     ../configure \
         --disable-tests \
         --with-mingw=clang \
@@ -68,7 +55,6 @@ src_configure() {
 }
 
 src_compile() {
-    # build wine
     cd "${S}/wine/build" || die
     emake ${MAKEOPTS} || die
 
