@@ -34,45 +34,68 @@ BDEPEND="
 "
 
 src_compile() {
-    # Проставляем пути
-    NATIVE="${WORKDIR}/native"
-    PREFIX="${WORKDIR}/install"
+    # Определяем целевые архитектуры на основе USE-флагов
+    local targets=()
+    use x86_64 && targets+=(x86_64)
+    use i686 && targets+=(i686)
+    use aarch64 && targets+=(aarch64)
+    use armv7 && targets+=(armv7)
 
-    # Опции LLVM
-    LLVM_ARGS="--full-llvm"
+    if [[ ${#targets[@]} -eq 0 ]]; then
+        die "Не выбрана ни одна целевая архитектура. Включите хотя бы один use-флаг (aarch64, armv7, i686, x86_64)"
+    fi
 
-    # Определяем таргеты
-    TARGETS=""
-    [[ ${IUSE} =~ alltargets ]] && TARGETS="x86_64 i686 aarch64 armv7"
-    [[ ${IUSE} =~ x86_64 ]] && TARGETS="$TARGETS x86_64"
-    [[ ${IUSE} =~ i686 ]] && TARGETS="$TARGETS i686"
-    [[ ${IUSE} =~ aarch64 ]] && TARGETS="$TARGETS aarch64"
-    [[ ${IUSE} =~ armv7 ]] && TARGETS="$TARGETS armv7"
+    # Преобразуем массив в строку с разделителем-запятой для скрипта сборки
+    local arch_list=$(IFS=,; echo "${targets[*]}")
 
-    # Собираем по каждому таргету
-    for CROSS_ARCH in $TARGETS; do
-        echo "Building for target: $CROSS_ARCH"
-        # Сборка с Python (при желании можно добавить опцию)
-        ./build.sh "$NATIVE" "$PREFIX" "$CROSS_ARCH" --with-python $LLVM_ARGS
-    done
+    # Вызываем скрипт сборки с указанием архитектур и префикса
+    einfo "Сборка llvm-mingw для архитектур: ${arch_list}"
+    ./build-cross-tools.sh "${WORKDIR}/build" --arch "${arch_list}" || die "Сборка не удалась"
 }
 
 src_install() {
-    # Создаём директорию для пакета
-    local INSTALLDIR="${D}/usr/lib/llvm-mingw/${PV}"
-    mkdir -p "$INSTALLDIR"
+    # Базовый путь установки для llvm-mingw
+    local install_base="/usr/lib/llvm-mingw/${PV}"
+    local build_dir="${WORKDIR}/build"
 
-    # Копируем всё из рабочей директории сборки
-    cp -r "${WORKDIR}/install/"* "$INSTALLDIR/"
+    if [[ ! -d "${build_dir}" ]]; then
+        die "Каталог сборки ${build_dir} не существует. Убедитесь, что src_compile() выполнена успешно"
+    fi
 
-    # Добавляем бинарники в PATH через wrapper, если нужно
-    # Это необязательно, но можно создать ссылки в /usr/bin
-    # Например:
-    # ln -s "$INSTALLDIR/bin/x86_64-w64-mingw32-gcc" "${D}/usr/bin/x86_64-w64-mingw32-gcc"
+    # Создаем каталог назначения
+    dodir "${install_base}"
+    
+    # Копируем содержимое собранного toolchain
+    einfo "Установка llvm-mingw в ${ED}${install_base}"
+    cp -R "${build_dir}/"* "${ED}${install_base}/" || die "Ошибка копирования файлов"
+
+    # Создаем симлинки для удобства доступа к инструментам из PATH
+    local toolchain_bin="${install_base}/bin"
+    dodir "/usr/bin"
+    for bin_file in "${ED}${toolchain_bin}"/*; do
+        local bin_name=$(basename "${bin_file}")
+        if [[ -f "${bin_file}" && -x "${bin_file}" ]]; then
+            dosym "${toolchain_bin}/${bin_name}" "/usr/bin/${bin_name}"
+        fi
+    done
+
+    # Устанавливаем документацию, если она есть
+    if [[ -d "${S}/docs" ]]; then
+        dodoc -r "${S}/docs/"*
+    fi
 }
 
 pkg_postinst() {
-    elog "llvm-mingw ${PV} installed in /usr/lib/llvm-mingw/${PV}"
-    elog "Add /usr/lib/llvm-mingw/${PV}/bin to your PATH to use cross-compilers"
+    # Сообщение пользователю о завершении установки
+    elog "LLVM/Clang/LLD-based mingw-w64 toolchain установлен в /usr/lib/llvm-mingw/${PV}/"
+    elog "Основные инструменты (clang, lld, ar) доступны через симлинки в /usr/bin/"
+    elog ""
+    elog "Для использования в кросс-компиляции убедитесь, что целевая архитектура"
+    elog "соответствует одному из включенных USE-флагов (aarch64, armv7, i686, x86_64)."
+    elog ""
+    elog "Пример компиляции для x86_64:"
+    elog "  x86_64-w64-mingw32-clang -o program.exe program.c"
+    elog ""
+    elog "Путь к toolchain добавлен в переменную PATH автоматически через симлинки."
 }
 
