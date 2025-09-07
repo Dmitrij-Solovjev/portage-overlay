@@ -10,7 +10,7 @@ SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz"
 
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~amd64"
+KEYWORDS="~amd64 ~arm64"
 IUSE="aarch64 x86_64 i686 alltargets"
 
 DEPEND="app-arch/xz-utils"
