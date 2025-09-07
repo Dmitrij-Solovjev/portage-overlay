@@ -5,24 +5,21 @@ EAPI=8
 
 DESCRIPTION="LLVM/Clang/LLD-based mingw-w64 toolchain (built from source via upstream build scripts)"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${PV}.tar.gz"
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 IUSE="alltargets aarch64 armv7 i686 x86_64"
 
-# Upstream scripts fetch LLVM/mingw-w64 sources during build.
 RESTRICT="network-sandbox mirror"
 
 S="${WORKDIR}/llvm-mingw-${PV}"
 
-# Tools needed only at build-time
 BDEPEND="
 	dev-build/autoconf
 	dev-build/automake
 	dev-build/cmake
-	dev-build/make
 	dev-build/ninja
 	dev-lang/python
 	dev-vcs/git
@@ -36,65 +33,63 @@ BDEPEND="
 	sys-devel/flex
 "
 
-# The installed toolchain is self-contained under /opt, so no runtime deps.
-RDEPEND=""
-
-src_prepare() {
-	default
-	chmod +x build-*.sh || die
-	chmod +x install-wrappers.sh prepare-cross-toolchain*.sh || die
-}
-
 src_compile() {
 	export CC=${CC:-gcc}
 	export CXX=${CXX:-g++}
 	local out="${WORKDIR}/toolchain"
 	einfo "Building llvm-mingw into ${out}"
 	bash ./build-all.sh "${out}" || die "build-all.sh failed"
-
-	# quick sanity: verify at least one target exists (aarch64 is the common case)
-	if [[ ! -x "${out}/bin/aarch64-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/x86_64-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/i686-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/armv7-w64-mingw32-clang" ]]; then
-		die "No target compilers found under ${out}/bin"
-	fi
+	
+	# Verify at least one target exists
+	local found=0
+	for target in aarch64 x86_64 i686 armv7; do
+		if [[ -x "${out}/bin/${target}-w64-mingw32-clang" ]]; then
+			found=1
+			break
+		fi
+	done
+	[[ $found -eq 0 ]] && die "No target compilers found"
 	export LLVMMINGW_OUT="${out}"
 }
 
 src_install() {
-	local dest="/opt/llvm-mingw-${PV}"
-	dodir "${dest}" || die
+	local dest="/usr/lib/llvm-mingw/${PV}"
+	local ctools=(clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line)
+
+	# Install main toolchain
+	dodir "${dest}"
 	cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
 
-	# Decide which target triples to expose on PATH via /usr/bin symlinks
+	# Create symlinks for frontends
 	local triples=()
 	use alltargets && triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
 	use aarch64 && triples+=(aarch64-w64-mingw32)
 	use armv7 && triples+=(armv7-w64-mingw32)
 	use i686 && triples+=(i686-w64-mingw32)
 	use x86_64 && triples+=(x86_64-w64-mingw32)
-	if [[ ${#triples[@]} -eq 0 ]]; then
-		ewarn "No USE targets selected; defaulting to aarch64"
-		triples=(aarch64-w64-mingw32)
-	fi
+	
+	[[ ${#triples[@]} -eq 0 ]] && triples=(aarch64-w64-mingw32)
 
-	# Create convenient symlinks for common tools
-	local tool
-	for t in "${triples[@]}"; do
-		for tool in clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line; do
-			if [[ -x "${ED}${dest}/bin/${t}-${tool}" ]]; then
-				dosym "/opt/llvm-mingw-${PV}/bin/${t}-${tool}" "/usr/bin/${t}-${tool}" || die
+	for triple in "${triples[@]}"; do
+		for tool in "${ctools[@]}"; do
+			if [[ -x "${ED}${dest}/bin/${triple}-${tool}" ]]; then
+				dosym "${dest}/bin/${triple}-${tool}" "/usr/bin/${triple}-${tool}"
 			fi
 		done
 	done
 
-	einstalldocs
+	# Move documentation
+	if [[ -d "${ED}${dest}/share/doc" ]]; then
+		dodoc -r "${ED}${dest}"/share/doc/*
+		rm -rf "${ED}${dest}"/share/doc || die
+	fi
+
+	# Cleanup empty directories
+	find "${ED}${dest}" -type d -empty -delete 2>/dev/null
 }
 
 pkg_postinst() {
-	elog "llvm-mingw ${PV} installed to /opt/llvm-mingw-${PV}"
-	elog "Symlinks for selected triples were created under /usr/bin"
-	elog "If you need different triples, rebuild with appropriate USE flags (aarch64 armv7 i686 x86_64 or alltargets)."
+	elog "Toolchain installed to ${dest}"
+	elog "Frontends are available in /usr/bin with target prefixes"
+	elog "Target files (libraries/headers) are in ${dest}/<target>"
 }
-
