@@ -5,7 +5,7 @@ EAPI=8
 
 DESCRIPTION="LLVM/Clang/LLD + mingw-w64 for Windows cross-compilation"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/${PN}/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
+SRC_URI=""
 
 LICENSE="Apache-2.0"
 SLOT="0"
@@ -30,13 +30,22 @@ BDEPEND="
 	sys-devel/flex
 "
 
-S="${WORKDIR}/${P}"
+inherit git-r3
+
+EGIT_REPO_URI="https://github.com/mstorsjo/llvm-mingw.git"
+EGIT_COMMIT="${PV}"  # тег релиза, например 20250826
+
+src_unpack() {
+	# Клонируем репозиторий с сабмодулями
+	git-r3_src_unpack || die "git checkout failed"
+	cd "${S}" || die
+	git submodule update --init --recursive || die "git submodules failed"
+}
 
 src_compile() {
-	# llvm-mingw использует build-all.sh для сборки
-	# по умолчанию собирает все архитектуры, поэтому подрежем через USE
-	local targets=()
+	cd "${S}" || die
 
+	local targets=()
 	use aarch64 && targets+=(aarch64)
 	use x86_64 && targets+=(x86_64)
 	use i686 && targets+=(i686)
@@ -45,16 +54,16 @@ src_compile() {
 		die "No targets selected, enable at least one of: aarch64, x86_64, i686"
 	fi
 
-	# Сборка в отдельной папке
-	mkdir build || die
+	# Создаём рабочую папку
+	mkdir -p build || die
 	cd build || die
 
-	# Запуск сборочного скрипта
-	../build-all.sh "${targets[@]}" || die "build failed"
+	# Собираем тулчейн с помощью build-all.sh
+	../build-all.sh "${targets[@]}" || die "build-all.sh failed"
 }
 
 src_install() {
-	# Ставим всё содержимое в /usr/lib/llvm-mingw/${PV}
+	# Всё ставим в /usr/lib/llvm-mingw/${PV}
 	insinto /usr/lib/${PN}/${PV}
 	doins -r build/*
 
