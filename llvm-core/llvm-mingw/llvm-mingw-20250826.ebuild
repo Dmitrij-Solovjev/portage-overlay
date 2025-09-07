@@ -35,7 +35,6 @@ src_unpack() {
     unpack ${A}
 }
 
-
 src_install() {
     # Переходим в директорию с распакованным содержимым
     cd "${S}" || die "Failed to change to source directory"
@@ -46,14 +45,12 @@ src_install() {
     doins -r *
 
     # Создаём симлинки на основные исполняемые файлы для каждой целевой триплеты
-    for triplet in x86_64-w64-mingw32 i686-w64-mingw32 aarch64-w64-mingw32 armv7-w64-mingw32; do
-        dosym -r /opt/llvm-mingw-${PV}/bin/clang       /usr/bin/${triplet}-clang
-        dosym -r /opt/llvm-mingw-${PV}/bin/clang++     /usr/bin/${triplet}-clang++
-        dosym -r /opt/llvm-mingw-${PV}/bin/ld          /usr/bin/${triplet}-ld
-        dosym -r /opt/llvm-mingw-${PV}/bin/llvm-ar     /usr/bin/${triplet}-ar
-        dosym -r /opt/llvm-mingw-${PV}/bin/llvm-as     /usr/bin/${triplet}-as
-        dosym -r /opt/llvm-mingw-${PV}/bin/llvm-ranlib /usr/bin/${triplet}-ranlib
+    for t in x86_64-w64-mingw32 i686-w64-mingw32 aarch64-w64-mingw32 armv7-w64-mingw32 arm64ec-w64-mingw32; do
+        for tool in clang clang++ clang-cl clangd lld lldb ar as nm ranlib strip objcopy objdump gcc g++; do
+            [[ -x "${S}/bin/${t}-${tool}.exe" ]] && dosym "${S}/bin/${t}-${tool}.exe" "/usr/bin/${t}-${tool}"
+        done
     done
+
 
     # Устанавливаем README.md в /usr/share/doc/llvm-mingw-${PV} (если он есть)
     if [[ -f README.md ]]; then
