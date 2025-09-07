@@ -3,6 +3,7 @@ DESCRIPTION="LLVM/Clang/LLD based mingw-w64 toolchain (UCRT) for Windows targets
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
 SRC_URI="https://github.com/mstorsjo/llvm-mingw/releases/download/${PV}/llvm-mingw-${PV}-ucrt-aarch64.zip"
 LICENSE="Apache-2.0 WITH LLVM-exception ISC"
+KEYWORDS="~arm64 ~amd64"
 
 IUSE=""
 # Зависимости для распаковки и установки (в том числе unzip для распаковки .zip:contentReference[oaicite:3]{index=3})
