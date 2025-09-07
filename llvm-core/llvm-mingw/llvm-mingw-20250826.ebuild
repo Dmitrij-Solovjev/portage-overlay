@@ -50,6 +50,7 @@ src_compile() {
 
     # Вызываем скрипт сборки с указанием архитектур и префикса
     einfo "Сборка llvm-mingw для архитектур: ${arch_list}"
+    export PYTHON=""
     ./build-cross-tools.sh /usr/lib "${WORKDIR}/build" "${arch_list}" || die "Сборка не удалась"
 }
 
