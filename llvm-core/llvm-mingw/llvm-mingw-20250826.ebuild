@@ -27,7 +27,7 @@ BDEPEND="
 	dev-lang/python
 	dev-vcs/git
 	sys-devel/patch
-	sys-devel/libtool
+	dev-build/libtool
 	app-arch/xz-utils
 	app-arch/unzip
 	net-misc/curl
