@@ -10,7 +10,7 @@ SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -
 LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
-IUSE="+native alltargets aarch64 armv7 i686 x86_64"
+IUSE="alltargets aarch64 armv7 i686 x86_64"
 
 RESTRICT="network-sandbox mirror"
 
@@ -50,27 +50,15 @@ src_compile() {
 		use x86_64  && arches+=(x86_64)
 	fi
 
-	# если пусто → берём native
-	if [[ ${#arches[@]} -eq 0 ]]; then
-		if use native; then
-			arches=("native")
-		else
-			die "No targets selected. Enable at least one of: native, aarch64, armv7, i686, x86_64, alltargets"
-		fi
-	fi
+	# если пусто → дефолт x86_64
+	[[ ${#arches[@]} -eq 0 ]] && arches=(x86_64)
 
 	# сборка по списку
 	for arch in "${arches[@]}"; do
 		einfo "Building llvm-mingw for ${arch}"
-		if [[ ${arch} == "native" ]]; then
-			bash ./build-native-tools.sh "${out}" \
-				--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
-				|| die "build-native-tools.sh failed"
-		else
-			bash ./build-cross-tools.sh "${native}" "${out}" "${arch}" \
-				--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
-				|| die "build-cross-tools.sh failed for ${arch}"
-		fi
+		bash ./build-cross-tools.sh "${native}" "${out}" "${arch}" \
+			--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
+			|| die "build-cross-tools.sh failed for ${arch}"
 	done
 
 	export LLVMMINGW_OUT="${out}"
@@ -94,23 +82,15 @@ src_install() {
 		use i686    && triples+=(i686-w64-mingw32)
 		use x86_64  && triples+=(x86_64-w64-mingw32)
 	fi
+	[[ ${#triples[@]} -eq 0 ]] && triples=(x86_64-w64-mingw32)
 
-	# если ничего не выбрано → нативный тулчейн без префиксов
-	if [[ ${#triples[@]} -eq 0 ]] && use native; then
+	for triple in "${triples[@]}"; do
 		for tool in "${ctools[@]}"; do
-			if [[ -x "${ED}${dest}/bin/${tool}" ]]; then
-				dosym "${dest}/bin/${tool}" "/usr/bin/${tool}"
+			if [[ -x "${ED}${dest}/bin/${triple}-${tool}" ]]; then
+				dosym "${dest}/bin/${triple}-${tool}" "/usr/bin/${triple}-${tool}"
 			fi
 		done
-	else
-		for triple in "${triples[@]}"; do
-			for tool in "${ctools[@]}"; do
-				if [[ -x "${ED}${dest}/bin/${triple}-${tool}" ]]; then
-					dosym "${dest}/bin/${triple}-${tool}" "/usr/bin/${triple}-${tool}"
-				fi
-			done
-		done
-	fi
+	done
 
 	# документация
 	if [[ -d "${ED}${dest}/share/doc" ]]; then
@@ -124,10 +104,7 @@ src_install() {
 
 pkg_postinst() {
 	elog "Toolchain installed to /usr/lib/llvm-mingw/${PV}"
-	if use native; then
-		elog "Native frontends are available in /usr/bin without target prefix"
-	else
-		elog "Cross frontends are available in /usr/bin with target prefixes"
-	fi
+	elog "Cross frontends are available in /usr/bin with target prefixes"
+	elog "Default target is x86_64-w64-mingw32 if none selected"
 }
 
