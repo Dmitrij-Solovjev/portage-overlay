@@ -5,14 +5,16 @@ EAPI=8
 
 DESCRIPTION="llvm-mingw: a LLVM/Clang/LLD based mingw-w64 toolchain (prebuilt installer-style ebuild template)"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/releases/download/${PV}/llvm-mingw-${PV}.tar.xz"
+# Upstream does not always publish a .tar.xz release file under Releases/distfiles.
+# GitHub provides the tag archive at /archive/refs/tags/<tag>.tar.gz — use that as SRC_URI.
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz"
 
 # NOTE: upstream bundles many components with differing licenses; this ebuild
 # marks LICENSE="MIT" as a pragmatic default placeholder. Adjust to match
 # upstream licensing for the specific release you package.
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64"  # adjust to your arch/keyword policy
+KEYWORDS="~amd64"  # adjust to your arch/keyword policy
 IUSE="aarch64 x86_64 i686 alltargets"
 
 # This ebuild treats upstream release as a prebuilt toolchain archive
@@ -23,12 +25,19 @@ DEPEND="app-arch/xz-utils"
 RDEPEND=""
 
 src_unpack() {
+    # GitHub tag archives unpack into a subdirectory named "llvm-mingw-${PV}".
     unpack ${A}
+    # If archive unpacked into a single subdir, cd into it so src_install copies
+    # the expected layout (bin/ lib/ include/ ...)
+    if [[ -d "${WORKDIR}/llvm-mingw-${PV}" ]]; then
+        mv "${WORKDIR}/llvm-mingw-${PV}"/* "${WORKDIR}/"
+        rmdir "${WORKDIR}/llvm-mingw-${PV}" || true
+    fi
 }
 
 src_prepare() {
     default
-    # upstream releases can contain absolute timestamps/ownerships; normalize
+    # Normalize timestamps/ownerships in the unpacked tree
     find . -exec touch -t 198001010000 {} + || true
 }
 
@@ -37,9 +46,7 @@ src_install() {
     local install_prefix="${D}/opt/llvm-mingw-${PV}"
     dodir "${install_prefix}"
 
-    # upstream release is expected to have a top-level 'llvm-mingw' directory
-    # or to contain bin/ lib/ include/ etc at top-level. Copy everything.
-    # (Keep it simple and robust: copy all files from the unpacked dir.)
+    # upstream release is expected to have bin/ lib/ include/ etc at top-level.
     cp -a . "${install_prefix}/"
 
     # Ensure binaries are executable and permissions sane
@@ -48,10 +55,8 @@ src_install() {
     fi
 
     # Create /usr/bin wrappers (symlinks) for selected target triples
-    # Known triple names used by llvm-mingw: x86_64-w64-mingw32 and aarch64-w64-mingw32
     local -a triples=("x86_64-w64-mingw32" "aarch64-w64-mingw32" "i686-w64-mingw32")
 
-    # Decide which triples to expose based on USE flags
     local expose_all=0
     if use alltargets; then
         expose_all=1
@@ -76,7 +81,6 @@ src_install() {
                 ;;
         esac
 
-        # for each triple create symlinks for main tools if present
         for tool in clang clang++ clang-cl clangd lld lldb ar as nm ranlib strip objcopy objdump; do
             local src="${install_prefix}/bin/${t}-${tool}"
             local dst="${D}/usr/bin/${t}-${tool}"
@@ -86,17 +90,16 @@ src_install() {
             fi
         done
 
-        # also symlink the simpler prefixed names (aarch64-w64-mingw32-clang etc)
-        # and ship generic wrappers: <triple>-cc and <triple>-c++ -> clang/clang++
         if [[ -x "${install_prefix}/bin/${t}-clang" ]]; then
             dosym "${install_prefix}/bin/${t}-clang" "${D}/usr/bin/${t}-cc"
             dosym "${install_prefix}/bin/${t}-clang++" "${D}/usr/bin/${t}-c++"
         fi
     done
 
-    # minimal metadata
     dodir "${D}/usr/share/doc/llvm-mingw-${PV}"
-    fcopy README.md "${D}/usr/share/doc/llvm-mingw-${PV}/"
+    if [[ -f README.md ]]; then
+        fcopy README.md "${D}/usr/share/doc/llvm-mingw-${PV}/"
+    fi
 }
 
 pkg_postinst() {
@@ -105,12 +108,12 @@ pkg_postinst() {
     elog "If you need different triples, rebuild with appropriate USE flags"
 }
 
-# Note to packager:
-# - This is a template ebuild. Upstream releases sometimes ship prebuilt
-#   archives per-host-OS (e.g. linux-host). If you want to package the
-#   source + build-from-source flow, significant additions are required
-#   (DEPEND on cmake, ninja, python, and invoking the repo's build scripts).
-# - The LICENSE value above is a placeholder; inspect upstream for the
-#   release you package and set LICENSE and SRC_URI accordingly.
-# - Update KEYWORDS and REQUIRED_USE to match your tree policy.
-# - If upstream changes layout, adjust src_install copy paths.
+# Notes to packager:
+# - This ebuild now fetches GitHub tag archives (refs/tags/<tag>.tar.gz).
+#   If upstream publishes release artifacts (tar.xz) you prefer, you can
+#   change SRC_URI to point to them or add additional SRC_URI entries.
+# - LICENSE is still a placeholder: inspect the release and list the exact
+#   licensing for correct packaging.
+# - If you want a build-from-source ebuild (full compilation of LLVM + mingw-w64),
+#   ask and I'll prepare a more complete ebuild with DEPENDs and build steps.
+
