@@ -36,40 +36,22 @@ BDEPEND="
 src_compile() {
 	export CC=${CC:-gcc}
 	export CXX=${CXX:-g++}
+	local out="${WORKDIR}/toolchain"
+	einfo "Building llvm-mingw into ${out}"
 
-	# Переходим в исходники (гарантируем корректный PWD)
-	cd "${S}" || die "cannot cd to ${S}"
+	# Определяем целевой триплет
+	local triples=()
+	use alltargets && triples+=(aarch64 x86_64 i686 armv7)
+	use aarch64 && triples+=(aarch64)
+	use armv7 && triples+=(armv7)
+	use i686 && triples+=(i686)
+	use x86_64 && triples+=(x86_64)
+	[[ ${#triples[@]} -eq 0 ]] && triples=(x86_64)
 
-	# Абсолютные пути: куда ставим (out) и native (используется скриптом)
-	local out
-	local native
-	out="$(readlink -f "${WORKDIR}/toolchain" 2>/dev/null || printf "%s\n" "${WORKDIR}/toolchain")"
-	# EPREFIX может быть пустым; readlink -f on /usr works fine
-	native="$(readlink -f "${EPREFIX}/usr" 2>/dev/null || printf "%s\n" "/usr")"
-
-	mkdir -p "${out}" || die "failed to create ${out}"
-
-	local arches=()
-
-	# определить таргеты
-	if use alltargets; then
-		arches=(aarch64 armv7 i686 x86_64)
-	else
-		use aarch64 && arches+=(aarch64)
-		use armv7   && arches+=(armv7)
-		use i686    && arches+=(i686)
-		use x86_64  && arches+=(x86_64)
-	fi
-
-	# если пусто → дефолт x86_64
-	[[ ${#arches[@]} -eq 0 ]] && arches=(x86_64)
-
-	# сборка по списку — вызываем скрипт по абсолютному пути
-	for arch in "${arches[@]}"; do
-		einfo "Building llvm-mingw for ${arch}"
-		bash "${S}/build-cross-tools.sh" "${native}" "${out}" "${arch}" \
+	for target in "${triples[@]}"; do
+		bash ./build-cross-tools.sh "$WORKDIR/toolchain" "$WORKDIR/toolchain" "$target" \
 			--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
-			|| die "build-cross-tools.sh failed for ${arch}"
+			--disable-mingw-w64-tools --disable-make || die "build-cross-tools.sh failed for $target"
 	done
 
 	export LLVMMINGW_OUT="${out}"
@@ -79,20 +61,18 @@ src_install() {
 	local dest="/usr/lib/llvm-mingw/${PV}"
 	local ctools=(clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line)
 
-	# установить toolchain
+	# Установка всего тулчейна
 	dodir "${dest}"
 	cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
 
-	# фронтенды
+	# Создаем симлинки для фронтендов
 	local triples=()
-	if use alltargets; then
-		triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
-	else
-		use aarch64 && triples+=(aarch64-w64-mingw32)
-		use armv7   && triples+=(armv7-w64-mingw32)
-		use i686    && triples+=(i686-w64-mingw32)
-		use x86_64  && triples+=(x86_64-w64-mingw32)
-	fi
+	use alltargets && triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
+	use aarch64 && triples+=(aarch64-w64-mingw32)
+	use armv7 && triples+=(armv7-w64-mingw32)
+	use i686 && triples+=(i686-w64-mingw32)
+	use x86_64 && triples+=(x86_64-w64-mingw32)
+
 	[[ ${#triples[@]} -eq 0 ]] && triples=(x86_64-w64-mingw32)
 
 	for triple in "${triples[@]}"; do
@@ -103,19 +83,19 @@ src_install() {
 		done
 	done
 
-	# документация
+	# Документация
 	if [[ -d "${ED}${dest}/share/doc" ]]; then
 		dodoc -r "${ED}${dest}"/share/doc/*
 		rm -rf "${ED}${dest}"/share/doc || die
 	fi
 
-	# чистка пустых каталогов
+	# Удаляем пустые директории
 	find "${ED}${dest}" -type d -empty -delete 2>/dev/null
 }
 
 pkg_postinst() {
-	elog "Toolchain installed to /usr/lib/llvm-mingw/${PV}"
-	elog "Cross frontends are available in /usr/bin with target prefixes"
-	elog "Default target is x86_64-w64-mingw32 if none selected"
+	elog "LLVM-Mingw toolchain installed to ${dest}"
+	elog "Frontends are available in /usr/bin with target prefixes"
+	elog "Target files (libraries/headers) are in ${dest}/<target>"
 }
 
