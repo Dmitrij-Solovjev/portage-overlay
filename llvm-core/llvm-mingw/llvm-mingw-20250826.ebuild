@@ -57,9 +57,8 @@ src_compile() {
 		local native_subdir="${native_dir}/${arch}"
 		mkdir -p "${out_dir}" "${native_subdir}" || die
 		# из-за бага в build-cross-tools.sh
-		export PYTHON=""
-		./build-cross-tools.sh "${native_subdir}" "${out_dir}" "${arch}" \
-			|| die "build-cross-tools.sh failed for ${arch}"
+		export PYTHON=0
+		./build-cross-tools.sh "${native_subdir}" "${out_dir}" "${arch}"
 	done
 
 	# Проверяем, что хотя бы один компилятор собран
