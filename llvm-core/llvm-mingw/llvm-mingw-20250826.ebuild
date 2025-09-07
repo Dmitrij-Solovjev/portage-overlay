@@ -49,7 +49,7 @@ src_unpack() {
 
 src_prepare() {
     S="${WORKDIR}/llvm-mingw-${PV}-ucrt-aarch64"
-    [[ -d "$S" ]] || S="${WORKDIR}"  # fallback if directory name differs
+    
     default
 }
 
