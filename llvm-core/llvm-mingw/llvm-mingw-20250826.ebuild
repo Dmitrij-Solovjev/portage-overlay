@@ -10,7 +10,7 @@ SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -
 LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
-IUSE="alltargets aarch64 armv7 i686 x86_64"
+IUSE="+native alltargets aarch64 armv7 i686 x86_64"
 
 RESTRICT="network-sandbox mirror"
 
@@ -37,18 +37,42 @@ src_compile() {
 	export CC=${CC:-gcc}
 	export CXX=${CXX:-g++}
 	local out="${WORKDIR}/toolchain"
-	einfo "Building llvm-mingw into ${out}"
-	bash ./build-all.sh "${out}" || die "build-all.sh failed"
-	
-	# Verify at least one target exists
-	local found=0
-	for target in aarch64 x86_64 i686 armv7; do
-		if [[ -x "${out}/bin/${target}-w64-mingw32-clang" ]]; then
-			found=1
-			break
+	local native="${EPREFIX}/usr"
+	local arches=()
+
+	# определить таргеты
+	if use alltargets; then
+		arches=(aarch64 armv7 i686 x86_64)
+	else
+		use aarch64 && arches+=(aarch64)
+		use armv7   && arches+=(armv7)
+		use i686    && arches+=(i686)
+		use x86_64  && arches+=(x86_64)
+	fi
+
+	# если пусто → берём native
+	if [[ ${#arches[@]} -eq 0 ]]; then
+		if use native; then
+			arches=("native")
+		else
+			die "No targets selected. Enable at least one of: native, aarch64, armv7, i686, x86_64, alltargets"
+		fi
+	fi
+
+	# сборка по списку
+	for arch in "${arches[@]}"; do
+		einfo "Building llvm-mingw for ${arch}"
+		if [[ ${arch} == "native" ]]; then
+			bash ./build-native-tools.sh "${out}" \
+				--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
+				|| die "build-native-tools.sh failed"
+		else
+			bash ./build-cross-tools.sh "${native}" "${out}" "${arch}" \
+				--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
+				|| die "build-cross-tools.sh failed for ${arch}"
 		fi
 	done
-	[[ $found -eq 0 ]] && die "No target compilers found"
+
 	export LLVMMINGW_OUT="${out}"
 }
 
@@ -56,40 +80,54 @@ src_install() {
 	local dest="/usr/lib/llvm-mingw/${PV}"
 	local ctools=(clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line)
 
-	# Install main toolchain
+	# установить toolchain
 	dodir "${dest}"
 	cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
 
-	# Create symlinks for frontends
+	# фронтенды
 	local triples=()
-	use alltargets && triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
-	use aarch64 && triples+=(aarch64-w64-mingw32)
-	use armv7 && triples+=(armv7-w64-mingw32)
-	use i686 && triples+=(i686-w64-mingw32)
-	use x86_64 && triples+=(x86_64-w64-mingw32)
-	
-	[[ ${#triples[@]} -eq 0 ]] && triples=(aarch64-w64-mingw32)
+	if use alltargets; then
+		triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
+	else
+		use aarch64 && triples+=(aarch64-w64-mingw32)
+		use armv7   && triples+=(armv7-w64-mingw32)
+		use i686    && triples+=(i686-w64-mingw32)
+		use x86_64  && triples+=(x86_64-w64-mingw32)
+	fi
 
-	for triple in "${triples[@]}"; do
+	# если ничего не выбрано → нативный тулчейн без префиксов
+	if [[ ${#triples[@]} -eq 0 ]] && use native; then
 		for tool in "${ctools[@]}"; do
-			if [[ -x "${ED}${dest}/bin/${triple}-${tool}" ]]; then
-				dosym "${dest}/bin/${triple}-${tool}" "/usr/bin/${triple}-${tool}"
+			if [[ -x "${ED}${dest}/bin/${tool}" ]]; then
+				dosym "${dest}/bin/${tool}" "/usr/bin/${tool}"
 			fi
 		done
-	done
+	else
+		for triple in "${triples[@]}"; do
+			for tool in "${ctools[@]}"; do
+				if [[ -x "${ED}${dest}/bin/${triple}-${tool}" ]]; then
+					dosym "${dest}/bin/${triple}-${tool}" "/usr/bin/${triple}-${tool}"
+				fi
+			done
+		done
+	fi
 
-	# Move documentation
+	# документация
 	if [[ -d "${ED}${dest}/share/doc" ]]; then
 		dodoc -r "${ED}${dest}"/share/doc/*
 		rm -rf "${ED}${dest}"/share/doc || die
 	fi
 
-	# Cleanup empty directories
+	# чистка пустых каталогов
 	find "${ED}${dest}" -type d -empty -delete 2>/dev/null
 }
 
 pkg_postinst() {
-	elog "Toolchain installed to ${dest}"
-	elog "Frontends are available in /usr/bin with target prefixes"
-	elog "Target files (libraries/headers) are in ${dest}/<target>"
+	elog "Toolchain installed to /usr/lib/llvm-mingw/${PV}"
+	if use native; then
+		elog "Native frontends are available in /usr/bin without target prefix"
+	else
+		elog "Cross frontends are available in /usr/bin with target prefixes"
+	fi
 }
+
