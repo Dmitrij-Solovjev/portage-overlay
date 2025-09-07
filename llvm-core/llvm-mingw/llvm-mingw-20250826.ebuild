@@ -34,79 +34,45 @@ BDEPEND="
 "
 
 src_compile() {
-	export CC=${CC:-gcc}
-	export CXX=${CXX:-g++}
-	local toolchain_dir="${WORKDIR}/toolchain"
-	local native_dir="${WORKDIR}/native"
-	einfo "Building llvm-mingw toolchain (selected targets only) into ${toolchain_dir}"
-	mkdir -p "${toolchain_dir}" "${native_dir}" || die
+    # Проставляем пути
+    NATIVE="${WORKDIR}/native"
+    PREFIX="${WORKDIR}/install"
 
-	# Определяем список архитектур по USE-флагам
-	local archs=()
-	use alltargets && archs=(aarch64 armv7 i686 x86_64)
-	use aarch64   && archs+=(aarch64)
-	use armv7     && archs+=(armv7)
-	use i686      && archs+=(i686)
-	use x86_64    && archs+=(x86_64)
-	[[ ${#archs[@]} -eq 0 ]] && archs=(aarch64)  # по умолчанию
+    # Опции LLVM
+    LLVM_ARGS="--full-llvm"
 
-	# Запускаем build-cross-tools.sh для каждой архитектуры
-	for arch in "${archs[@]}"; do
-		einfo "Building target ${arch}-w64-mingw32"
-		local out_dir="${toolchain_dir}/${arch}"
-		local native_subdir="${native_dir}/${arch}"
-		mkdir -p "${out_dir}" "${native_subdir}" || die
-		# из-за бага в build-cross-tools.sh
-		export PYTHON=0
-		./build-cross-tools.sh "${native_subdir}" "${out_dir}" "${arch}"
-	done
+    # Определяем таргеты
+    TARGETS=""
+    [[ ${IUSE} =~ alltargets ]] && TARGETS="x86_64 i686 aarch64 armv7"
+    [[ ${IUSE} =~ x86_64 ]] && TARGETS="$TARGETS x86_64"
+    [[ ${IUSE} =~ i686 ]] && TARGETS="$TARGETS i686"
+    [[ ${IUSE} =~ aarch64 ]] && TARGETS="$TARGETS aarch64"
+    [[ ${IUSE} =~ armv7 ]] && TARGETS="$TARGETS armv7"
 
-	# Проверяем, что хотя бы один компилятор собран
-	local found=0
-	for arch in "${archs[@]}"; do
-		if [[ -x "${toolchain_dir}/${arch}/bin/${arch}-w64-mingw32-clang" ]]; then
-			found=1; break
-		fi
-	done
-	[[ $found -eq 0 ]] && die "No target compilers built"
-
-	export LLVMMINGW_OUT="${toolchain_dir}"
+    # Собираем по каждому таргету
+    for CROSS_ARCH in $TARGETS; do
+        echo "Building for target: $CROSS_ARCH"
+        # Сборка с Python (при желании можно добавить опцию)
+        ./build.sh "$NATIVE" "$PREFIX" "$CROSS_ARCH" --with-python $LLVM_ARGS
+    done
 }
 
 src_install() {
-	local dest="/usr/lib/llvm-mingw/${PV}"
-	local ctools=(clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line)
-	dodir "${dest}"
+    # Создаём директорию для пакета
+    local INSTALLDIR="${D}/usr/lib/llvm-mingw/${PV}"
+    mkdir -p "$INSTALLDIR"
 
-	# Копируем файлы из каждой архитектуры в общую директорию
-	for arch in "${archs[@]}"; do
-		cp -a "${LLVMMINGW_OUT}/${arch}/." "${ED}${dest}" || die
-	done
+    # Копируем всё из рабочей директории сборки
+    cp -r "${WORKDIR}/install/"* "$INSTALLDIR/"
 
-	# Создаём симлинки для frontends по каждому триплету
-	for arch in "${archs[@]}"; do
-		local trip="${arch}-w64-mingw32"
-		for tool in "${ctools[@]}"; do
-			if [[ -x "${ED}${dest}/bin/${trip}-${tool}" ]]; then
-				dosym "${dest}/bin/${trip}-${tool}" "/usr/bin/${trip}-${tool}"
-			fi
-		done
-	done
-
-	# Убираем документацию из пакета
-	if [[ -d "${ED}${dest}/share/doc" ]]; then
-		dodoc -r "${ED}${dest}/share/doc"/*
-		rm -rf "${ED}${dest}/share/doc" || die
-	fi
-
-	# Очистка пустых директорий
-	find "${ED}${dest}" -type d -empty -delete 2>/dev/null
+    # Добавляем бинарники в PATH через wrapper, если нужно
+    # Это необязательно, но можно создать ссылки в /usr/bin
+    # Например:
+    # ln -s "$INSTALLDIR/bin/x86_64-w64-mingw32-gcc" "${D}/usr/bin/x86_64-w64-mingw32-gcc"
 }
 
 pkg_postinst() {
-	local dest="/usr/lib/llvm-mingw/${PV}"
-	elog "Toolchain installed to ${dest}"
-	elog "Frontends are available in /usr/bin with target prefixes"
-	elog "Target files (libraries/headers) are in ${dest}/<target>"
+    elog "llvm-mingw ${PV} installed in /usr/lib/llvm-mingw/${PV}"
+    elog "Add /usr/lib/llvm-mingw/${PV}/bin to your PATH to use cross-compilers"
 }
 
