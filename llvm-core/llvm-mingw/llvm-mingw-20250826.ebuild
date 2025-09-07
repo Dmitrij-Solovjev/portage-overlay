@@ -14,7 +14,7 @@ SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz"
 # upstream licensing for the specific release you package.
 LICENSE="MIT"
 SLOT="0"
-KEYWORDS="~amd64"  # adjust to your arch/keyword policy
+KEYWORDS="~amd64 ~arm64"  # adjust to your arch/keyword policy
 IUSE="aarch64 x86_64 i686 alltargets"
 
 # This ebuild treats upstream release as a prebuilt toolchain archive
