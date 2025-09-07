@@ -30,7 +30,10 @@ SLOT="0"
 
 src_unpack() {
     unpack ${A}
+    S="${WORKDIR}/${P}-ucrt-aarch64"
 }
+
+
 
 src_install() {
     # Переходим в директорию с распакованным содержимым
