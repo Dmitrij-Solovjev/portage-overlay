@@ -3,21 +3,15 @@
 
 EAPI=8
 
-DESCRIPTION="LLVM/Clang/LLD-based mingw-w64 toolchain (built from source via upstream build scripts)"
+DESCRIPTION="LLVM/Clang/LLD + mingw-w64 for Windows cross-compilation"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${PV}.tar.gz"
+SRC_URI="https://github.com/mstorsjo/${PN}/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
 
-LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
+LICENSE="Apache-2.0"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
-IUSE="alltargets aarch64 armv7 i686 x86_64"
+IUSE="aarch64 x86_64 i686"
 
-# Upstream scripts fetch LLVM/mingw-w64 sources during build.
-RESTRICT="network-sandbox mirror"
-
-S="${WORKDIR}/llvm-mingw-${PV}"
-
-# Tools needed only at build-time
 BDEPEND="
 	dev-build/autoconf
 	dev-build/automake
@@ -36,65 +30,40 @@ BDEPEND="
 	sys-devel/flex
 "
 
-# The installed toolchain is self-contained under /opt, so no runtime deps.
-RDEPEND=""
-
-src_prepare() {
-	default
-	chmod +x build-*.sh || die
-	chmod +x install-wrappers.sh prepare-cross-toolchain*.sh || die
-}
+S="${WORKDIR}/${P}"
 
 src_compile() {
-	export CC=${CC:-gcc}
-	export CXX=${CXX:-g++}
-	local out="${WORKDIR}/toolchain"
-	einfo "Building llvm-mingw into ${out}"
-	bash ./build-all.sh "${out}" || die "build-all.sh failed"
+	# llvm-mingw использует build-all.sh для сборки
+	# по умолчанию собирает все архитектуры, поэтому подрежем через USE
+	local targets=()
 
-	# quick sanity: verify at least one target exists (aarch64 is the common case)
-	if [[ ! -x "${out}/bin/aarch64-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/x86_64-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/i686-w64-mingw32-clang" ]] \
-	   && [[ ! -x "${out}/bin/armv7-w64-mingw32-clang" ]]; then
-		die "No target compilers found under ${out}/bin"
+	use aarch64 && targets+=(aarch64)
+	use x86_64 && targets+=(x86_64)
+	use i686 && targets+=(i686)
+
+	if [[ ${#targets[@]} -eq 0 ]]; then
+		die "No targets selected, enable at least one of: aarch64, x86_64, i686"
 	fi
-	export LLVMMINGW_OUT="${out}"
+
+	# Сборка в отдельной папке
+	mkdir build || die
+	cd build || die
+
+	# Запуск сборочного скрипта
+	../build-all.sh "${targets[@]}" || die "build failed"
 }
 
 src_install() {
-	local dest="/opt/llvm-mingw-${PV}"
-	dodir "${dest}" || die
-	cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
+	# Ставим всё содержимое в /usr/lib/llvm-mingw/${PV}
+	insinto /usr/lib/${PN}/${PV}
+	doins -r build/*
 
-	# Decide which target triples to expose on PATH via /usr/bin symlinks
-	local triples=()
-	use alltargets && triples+=(aarch64-w64-mingw32 armv7-w64-mingw32 i686-w64-mingw32 x86_64-w64-mingw32)
-	use aarch64 && triples+=(aarch64-w64-mingw32)
-	use armv7 && triples+=(armv7-w64-mingw32)
-	use i686 && triples+=(i686-w64-mingw32)
-	use x86_64 && triples+=(x86_64-w64-mingw32)
-	if [[ ${#triples[@]} -eq 0 ]]; then
-		ewarn "No USE targets selected; defaulting to aarch64"
-		triples=(aarch64-w64-mingw32)
-	fi
+	# Симлинки на компиляторы в /usr/bin
+	use aarch64 && dosym ../lib/${PN}/${PV}/bin/aarch64-w64-mingw32-clang /usr/bin/aarch64-w64-mingw32-clang
+	use x86_64 && dosym ../lib/${PN}/${PV}/bin/x86_64-w64-mingw32-clang /usr/bin/x86_64-w64-mingw32-clang
+	use i686   && dosym ../lib/${PN}/${PV}/bin/i686-w64-mingw32-clang     /usr/bin/i686-w64-mingw32-clang
 
-	# Create convenient symlinks for common tools
-	local tool
-	for t in "${triples[@]}"; do
-		for tool in clang clang++ ar ranlib nm objdump windres dlltool lld lld-link as strip addr2line; do
-			if [[ -x "${ED}${dest}/bin/${t}-${tool}" ]]; then
-				dosym "/opt/llvm-mingw-${PV}/bin/${t}-${tool}" "/usr/bin/${t}-${tool}" || die
-			fi
-		done
-	done
-
-	einstalldocs
-}
-
-pkg_postinst() {
-	elog "llvm-mingw ${PV} installed to /opt/llvm-mingw-${PV}"
-	elog "Symlinks for selected triples were created under /usr/bin"
-	elog "If you need different triples, rebuild with appropriate USE flags (aarch64 armv7 i686 x86_64 or alltargets)."
+	# Документация
+	dodoc README.md
 }
 
