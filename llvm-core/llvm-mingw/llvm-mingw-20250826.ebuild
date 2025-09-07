@@ -34,15 +34,40 @@ BDEPEND="
 "
 
 src_compile() {
+	export CC=${CC:-gcc}
+	export CXX=${CXX:-g++}
 
-	local out="${WORKDIR}/toolchain"
-	local native="${WORKDIR}/native-tools"
-	mkdir -p "${native}"
-	export PATH="${CC%/*}:${CXX%/*}:$PATH"
+	# Переходим в исходники (гарантируем корректный PWD)
+	cd "${S}" || die "cannot cd to ${S}"
 
+	# Абсолютные пути: куда ставим (out) и native (используется скриптом)
+	local out
+	local native
+	out="$(readlink -f "${WORKDIR}/toolchain" 2>/dev/null || printf "%s\n" "${WORKDIR}/toolchain")"
+	# EPREFIX может быть пустым; readlink -f on /usr works fine
+	native="$(readlink -f "${EPREFIX}/usr" 2>/dev/null || printf "%s\n" "/usr")"
+
+	mkdir -p "${out}" || die "failed to create ${out}"
+
+	local arches=()
+
+	# определить таргеты
+	if use alltargets; then
+		arches=(aarch64 armv7 i686 x86_64)
+	else
+		use aarch64 && arches+=(aarch64)
+		use armv7   && arches+=(armv7)
+		use i686    && arches+=(i686)
+		use x86_64  && arches+=(x86_64)
+	fi
+
+	# если пусто → дефолт x86_64
+	[[ ${#arches[@]} -eq 0 ]] && arches=(x86_64)
+
+	# сборка по списку — вызываем скрипт по абсолютному пути
 	for arch in "${arches[@]}"; do
 		einfo "Building llvm-mingw for ${arch}"
-		bash ./build-cross-tools.sh "${native}" "${out}" "${arch}" \
+		bash "${S}/build-cross-tools.sh" "${native}" "${out}" "${arch}" \
 			--disable-lldb --disable-lldb-mi --disable-clang-tools-extra \
 			|| die "build-cross-tools.sh failed for ${arch}"
 	done
