@@ -34,26 +34,12 @@ BDEPEND="
 "
 
 src_compile() {
-	export CC=${CC:-gcc}
-	export CXX=${CXX:-g++}
+
 	local out="${WORKDIR}/toolchain"
-	local native="${EPREFIX}/usr"
-	local arches=()
+	local native="${WORKDIR}/native-tools"
+	mkdir -p "${native}"
+	export PATH="${CC%/*}:${CXX%/*}:$PATH"
 
-	# определить таргеты
-	if use alltargets; then
-		arches=(aarch64 armv7 i686 x86_64)
-	else
-		use aarch64 && arches+=(aarch64)
-		use armv7   && arches+=(armv7)
-		use i686    && arches+=(i686)
-		use x86_64  && arches+=(x86_64)
-	fi
-
-	# если пусто → дефолт x86_64
-	[[ ${#arches[@]} -eq 0 ]] && arches=(x86_64)
-
-	# сборка по списку
 	for arch in "${arches[@]}"; do
 		einfo "Building llvm-mingw for ${arch}"
 		bash ./build-cross-tools.sh "${native}" "${out}" "${arch}" \
