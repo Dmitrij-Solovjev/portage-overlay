@@ -7,7 +7,7 @@ SRC_URI="https://github.com/mstorsjo/llvm-mingw/releases/download/${PV}/llvm-min
 LICENSE="Apache-2.0 WITH LLVM-exception ISC"
 KEYWORDS="~arm64 ~amd64"
 
-S="${WORKDIR}/llvm-mingw-${PV}"
+S="${WORKDIR}/llvm-mingw-${PV}-ucrt-ubuntu-22.04-aarch64"
 
 IUSE=""
 
