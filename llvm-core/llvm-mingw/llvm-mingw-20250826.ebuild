@@ -19,14 +19,14 @@ S="${WORKDIR}/llvm-mingw-${PV}"
 
 # Tools needed only at build-time
 BDEPEND="
-	dev-util/cmake
-	dev-util/ninja
+	dev-build/autoconf
+	dev-build/automake
+	dev-build/cmake
+	dev-build/make
+	dev-build/ninja
 	dev-lang/python:3
 	dev-vcs/git
-	sys-devel/make
 	sys-devel/patch
-	sys-devel/autoconf
-	sys-devel/automake
 	sys-devel/libtool
 	app-arch/xz-utils
 	app-arch/unzip
