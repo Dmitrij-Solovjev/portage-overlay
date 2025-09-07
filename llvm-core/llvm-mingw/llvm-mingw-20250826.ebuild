@@ -24,7 +24,7 @@ BDEPEND="
 	dev-build/cmake
 	dev-build/make
 	dev-build/ninja
-	dev-lang/python:3
+	dev-lang/python
 	dev-vcs/git
 	sys-devel/patch
 	sys-devel/libtool
