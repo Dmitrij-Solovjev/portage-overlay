@@ -50,11 +50,14 @@ src_compile() {
 	use x86_64    && archs+=(x86_64)
 	[[ ${#archs[@]} -eq 0 ]] && archs=(aarch64)  # по умолчанию
 
+	echo "${archs[@]}"
 	# Запускаем build-cross-tools.sh для каждой архитектуры
 	for arch in "${archs[@]}"; do
 		einfo "Building target ${arch}-w64-mingw32"
 		local out_dir="${toolchain_dir}/${arch}"
 		local native_subdir="${native_dir}/${arch}"
+		echo "${out_dir}"
+		echo "${native_subdir}"
 		mkdir -p "${out_dir}" "${native_subdir}" || die
 		bash ./build-cross-tools.sh "${native_subdir}" "${out_dir}" "${arch}" \
 			|| die "build-cross-tools.sh failed for ${arch}"
