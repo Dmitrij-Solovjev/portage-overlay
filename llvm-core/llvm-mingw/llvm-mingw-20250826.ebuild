@@ -35,12 +35,21 @@ src_unpack() {
     unpack ${A}
     local zip_file="${DISTDIR}/llvm-mingw-${PV}-ucrt-aarch64.zip"
     [[ -f "$zip_file" ]] || die "zip file not found in DISTDIR"
+
+    mkdir -p "${WORKDIR}/llvm-mingw-extracted"
     unzip -q "$zip_file" -d "${WORKDIR}/llvm-mingw-extracted" || die "unzip failed"
-    mv "${WORKDIR}/llvm-mingw-extracted"/* "${WORKDIR}/"
+
+    # Move contents without overwriting existing files
+    for f in "${WORKDIR}/llvm-mingw-extracted"/*; do
+        mv -n "$f" "${WORKDIR}/" || true
+    done
+
     rm -rf "${WORKDIR}/llvm-mingw-extracted"
 }
 
 src_prepare() {
+    S="${WORKDIR}/llvm-mingw-${PV}-ucrt-aarch64"
+    [[ -d "$S" ]] || S="${WORKDIR}"  # fallback if directory name differs
     default
 }
 
@@ -55,7 +64,7 @@ src_compile() {
 src_install() {
     local install_prefix="/opt/llvm-mingw-${PV}"
     dodir "${D}${install_prefix}"
-    cp -a . "${D}${install_prefix}/"
+    cp -a "$S/"* "${D}${install_prefix}/"
 
     [[ -d "${D}${install_prefix}/bin" ]] && find "${D}${install_prefix}/bin" -type f -exec chmod 0755 {} + || true
 
