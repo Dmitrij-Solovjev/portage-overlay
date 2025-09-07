@@ -6,13 +6,12 @@ EAPI=8
 DESCRIPTION="llvm-mingw: prebuilt llvm-mingw toolchain with full target support"
 
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/releases/download/${PV}/llvm-mingw-${PV}-ucrt-aarch64.zip"
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/releases/download/${PV}/llvm-mingw-${PV}-ucrt-aarch64.zip -> llvm-mingw-${PV}-ucrt-aarch64.zip"
 
 LICENSE="MIT"
 SLOT="0"
 KEYWORDS="~arm64 ~amd64"
 
-# Full build-time dependencies
 BDEPEND="
     dev-build/autoconf
     dev-build/automake
@@ -34,9 +33,8 @@ RDEPEND=""
 
 src_unpack() {
     unpack ${A}
-    # unzip instead of tar
-    local zip_file=$(find . -maxdepth 1 -name "llvm-mingw-*.zip" | head -n1)
-    [[ -f "$zip_file" ]] || die "zip file not found"
+    local zip_file="${DISTDIR}/llvm-mingw-${PV}-ucrt-aarch64.zip"
+    [[ -f "$zip_file" ]] || die "zip file not found in DISTDIR"
     unzip -q "$zip_file" -d "${WORKDIR}/llvm-mingw-extracted" || die "unzip failed"
     mv "${WORKDIR}/llvm-mingw-extracted"/* "${WORKDIR}/"
     rm -rf "${WORKDIR}/llvm-mingw-extracted"
@@ -61,7 +59,6 @@ src_install() {
 
     [[ -d "${D}${install_prefix}/bin" ]] && find "${D}${install_prefix}/bin" -type f -exec chmod 0755 {} + || true
 
-    # Install all target triples without USE flags
     local -a triples=("x86_64-w64-mingw32" "aarch64-w64-mingw32" "i686-w64-mingw32")
     for t in "${triples[@]}"; do
         for tool in clang clang++ clang-cl clangd lld lldb ar as nm ranlib strip objcopy objdump; do
