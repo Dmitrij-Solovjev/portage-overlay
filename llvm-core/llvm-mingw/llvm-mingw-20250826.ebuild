@@ -27,7 +27,7 @@ DEPEND="
     virtual/pkgconfig
     sys-devel/bison
     sys-devel/flex
-    dev-lang/clang
+    llvm-core/clang
 "
 
 RDEPEND="${DEPENd}" # оставляем RDEPEND равным DEPEND (при необходимости раздели)
