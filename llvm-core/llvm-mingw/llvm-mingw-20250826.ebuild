@@ -72,7 +72,7 @@ src_compile() {
     cd "${S}" || die "cd ${S} failed"
 
     einfo "Running build-all.sh --host=${TARGET_TRIPLE} ${PREFIX_DIR}"
-    ./build-all.sh /opt/llvm-mingw || die "build-all.sh failed"
+    ./build-all.sh /opt/llvm-mingw --host="${TARGET_TRIPLE}" || die "build-all.sh failed"
 }
 
 src_install() {
