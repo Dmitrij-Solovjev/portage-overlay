@@ -1,16 +1,15 @@
-# Copyright 2025 Your Name
+# Copyright 2025
 EAPI=8
 
 DESCRIPTION="llvm-mingw (LLVM + mingw-w64 cross toolchain)"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI=""
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
 
 LICENSE="ISC"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
 IUSE="aarch64 x86_64 arm"
 
-# Используем предоставленные расположения (зависимости) + clang (обязателен для build-all.sh)
 DEPEND="
     dev-build/autoconf
     dev-build/automake
@@ -30,12 +29,9 @@ DEPEND="
     llvm-core/clang
 "
 
-RDEPEND="${DEPENd}" # оставляем RDEPEND равным DEPEND (при необходимости раздели)
+RDEPEND="${DEPEND}"
 
-src_unpack() {
-    git clone --depth 1 https://github.com/mstorsjo/llvm-mingw.git "${WORKDIR}/llvm-mingw" || die "git clone failed"
-    S="${WORKDIR}/llvm-mingw"
-}
+S="${WORKDIR}/${PN}-${PV}"
 
 _src_select_target() {
     if use aarch64; then
@@ -74,12 +70,10 @@ src_compile() {
     cd "${S}" || die "cd ${S} failed"
 
     einfo "Running build-all.sh --host=${TARGET_TRIPLE} ${PREFIX_DIR}"
-    # Запускаем сборку; если нужны дополнительные опции (cfguard, ucrt и т.д.) — можно расширить здесь.
     ./build-all.sh "${PREFIX_DIR}" --host="${TARGET_TRIPLE}" || die "build-all.sh failed"
 }
 
 src_install() {
-    # build-all.sh устанавливает в ${D}/usr/lib/llvm-mingw/${PV}
     BIN_DIR="/usr/lib/llvm-mingw/${PV}/bin"
 
     if [ -d "${D}${BIN_DIR}" ]; then
@@ -88,11 +82,8 @@ src_install() {
 
         dodir /usr/bin
         for t in ${TOOLS_LIST}; do
-            src="${BIN_DIR}/${t}"
-            dest="${D}/usr/bin/${t}"
-            if [ -e "${D}${src}" ]; then
-                # создаём симлинк в установленной системе, указывающий на /usr/lib/llvm-mingw/${PV}/bin/...
-                ln -s "/usr/lib/llvm-mingw/${PV}/bin/${t}" "${dest}" || die "failed to create symlink ${dest}"
+            if [ -e "${D}${BIN_DIR}/${t}" ]; then
+                ln -s "${BIN_DIR}/${t}" "${D}/usr/bin/${t}" || die "failed to create symlink ${t}"
             else
                 einfo "Tool ${t} not built; skipping symlink"
             fi
