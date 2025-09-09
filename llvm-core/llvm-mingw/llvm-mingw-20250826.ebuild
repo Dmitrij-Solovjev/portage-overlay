@@ -1,18 +1,26 @@
-# Copyright 2025
+# Copyright 2025 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
 EAPI=8
 
-DESCRIPTION="llvm-mingw (LLVM + mingw-w64 cross toolchain)"
+DESCRIPTION="LLVM/Clang/LLD-based mingw-w64 toolchain (built from source via upstream build scripts)"
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${P}.tar.gz"
-RESTRICT="network-sandbox mirror"
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/refs/tags/${PV}.tar.gz -> ${PV}.tar.gz"
 
-
-LICENSE="ISC"
+# Upstream contains multiple licenses for the different components.
+LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
 SLOT="0"
 KEYWORDS="~amd64 ~arm64"
-IUSE="aarch64 x86_64 arm"
 
-DEPEND="
+# Upstream scripts fetch LLVM/mingw-w64 sources during build.
+# Allow outgoing network in sandbox and allow upstream fetches from their servers.
+RESTRICT="network-sandbox mirror"
+
+# Source dir inside workdir after unpack
+S="${WORKDIR}/llvm-mingw-${PV}"
+
+# Build-time tools (toolchain is self-contained -> no runtime deps)
+BDEPEND="
     dev-build/autoconf
     dev-build/automake
     dev-build/cmake
@@ -31,68 +39,59 @@ DEPEND="
     llvm-core/clang
 "
 
-RDEPEND="${DEPEND}"
+RDEPEND=""
 
-S="${WORKDIR}/${PN}-${PV}"
-
-_src_select_target() {
-    if use aarch64; then
-        TARGET_TRIPLE="aarch64-w64-mingw32"
-    elif use x86_64; then
-        TARGET_TRIPLE="x86_64-w64-mingw32"
-    elif use arm; then
-        TARGET_TRIPLE="armv7-w64-mingw32"
-    else
-        ewarn "No target USE flag set — defaulting to aarch64"
-        TARGET_TRIPLE="aarch64-w64-mingw32"
-    fi
-
-    # Проверка: не более одного флага
-    enabled=0
-    for f in aarch64 x86_64 arm; do
-        if use $f; then
-            enabled=$((enabled+1))
-        fi
-    done
-    if [ $enabled -gt 1 ]; then
-        die "Only one of aarch64|x86_64|arm USE flags may be set"
-    fi
-}
-
-src_configure() {
-    _src_select_target
-    PREFIX_DIR="${D}/usr/lib/llvm-mingw/${PV}"
-    einfo "Configuring build: target=${TARGET_TRIPLE}, install prefix=${PREFIX_DIR}"
+src_prepare() {
+    default
+    # ensure build scripts are executable
+    chmod +x "${S}/build-"*.sh || die
+    chmod +x "${S}/install-wrappers.sh" "${S}/prepare-cross-toolchain"*"*.sh" 2>/dev/null || true
 }
 
 src_compile() {
-    _src_select_target
-    PREFIX_DIR="${D}/usr/lib/llvm-mingw/${PV}"
-    mkdir -p "${PREFIX_DIR}" || die "mkdir failed"
+    # build into a local workdir, then copy into /usr/lib/... in src_install
+    export CC=${CC:-gcc}
+    export CXX=${CXX:-g++}
+    local out="${WORKDIR}/toolchain"
+    einfo "Building llvm-mingw into ${out} (building all targets)"
+
     cd "${S}" || die "cd ${S} failed"
 
-    einfo "Running build-all.sh --host=${TARGET_TRIPLE} ${PREFIX_DIR}"
-    ./build-all.sh /opt/llvm-mingw --host="${TARGET_TRIPLE}" || die "build-all.sh failed"
+    # Upstream build-all.sh expects to fetch sources itself; do not try to
+    # restrict by host here (it breaks upstream scripts). RESTRICT allows network.
+    bash ./build-all.sh "${out}" || die "build-all.sh failed"
+
+    # Basic sanity: ensure at least one triplet compiler exists
+    if [[ ! -x "${out}/bin/aarch64-w64-mingw32-clang" ]] \
+       && [[ ! -x "${out}/bin/x86_64-w64-mingw32-clang" ]] \
+       && [[ ! -x "${out}/bin/i686-w64-mingw32-clang" ]] \
+       && [[ ! -x "${out}/bin/armv7-w64-mingw32-clang" ]]; then
+        die "No target compilers found under ${out}/bin"
+    fi
+
+    export LLVMMINGW_OUT="${out}"
 }
 
 src_install() {
-    BIN_DIR="/usr/lib/llvm-mingw/${PV}/bin"
+    local dest="/usr/lib/llvm-mingw/${PV}"
+    dodir "${dest}" || die
+    cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
 
-    if [ -d "${D}${BIN_DIR}" ]; then
-        einfo "Creating wrappers in ${D}/usr/bin for tools from ${BIN_DIR}"
-        TOOLS_LIST="${TARGET_TRIPLE}-clang ${TARGET_TRIPLE}-clang++ ${TARGET_TRIPLE}-ld.lld ${TARGET_TRIPLE}-ar ${TARGET_TRIPLE}-ranlib ${TARGET_TRIPLE}-windres"
+    # Create a stable 'current' symlink pointing to this version
+    dodir /usr/lib/llvm-mingw
+    dosym "${dest}" "/usr/lib/llvm-mingw/current" || die
 
-        dodir /usr/bin
-        for t in ${TOOLS_LIST}; do
-            if [ -e "${D}${BIN_DIR}/${t}" ]; then
-                ln -s "${BIN_DIR}/${t}" "${D}/usr/bin/${t}" || die "failed to create symlink ${t}"
-            else
-                einfo "Tool ${t} not built; skipping symlink"
-            fi
-        done
-    else
-        ewarn "${BIN_DIR} not found — no wrappers created"
-    fi
+
+
+    einstalldocs
+}
+
+multilib_src_install_all() {
+    # Add PATH entry via env.d (like official llvm ebuilds do)
+    newenvd - "60llvm-mingw" <<-_EOF_
+PATH="${EPREFIX}/usr/lib/llvm-mingw/${PV}/bin"
+ROOTPATH="${EPREFIX}/usr/lib/llvm-mingw/${PV}/bin"
+_EOF_
 }
 
 pkg_postinst() {
