@@ -7,7 +7,7 @@ DESCRIPTION="LLVM/Clang/LLD-based mingw-w64 toolchain (built from source via ups
 HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
 
 # Fetch a specific commit as a tarball (pinned commit e455d4c3...)
-SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/e455d4c3cb470216a130ca7b13f68977c2658c88.tar.gz -> llvm-mingw-master.tar.gz"
+SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/e455d4c3cb470216a130ca7b13f68977c2658c88.tar.gz -> ${PV}.tar.gz"
 
 
 # Upstream contains multiple licenses for the different components.
