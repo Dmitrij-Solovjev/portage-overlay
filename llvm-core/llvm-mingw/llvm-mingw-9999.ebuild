@@ -20,7 +20,7 @@ KEYWORDS="~amd64 ~arm64"
 RESTRICT="network-sandbox mirror"
 
 # Source dir inside workdir after unpack
-S="${WORKDIR}/llvm-mingw-${PV}"
+S="${WORKDIR}/llvm-mingw-master"
 
 # Build-time tools (toolchain is self-contained -> no runtime deps)
 BDEPEND="
@@ -45,12 +45,6 @@ BDEPEND="
 RDEPEND=""
 
 src_prepare() {
-    # accommodate GitHub commit-named archive: rename extracted dir to expected ${PV}
-    _GITDIR="${WORKDIR}/llvm-mingw-master"
-    if [[ -d "${_GITDIR}" && ! -d "${WORKDIR}/llvm-mingw-${PV}" ]]; then
-        mv "${_GITDIR}" "${WORKDIR}/llvm-mingw-${PV}" || die "rename source dir failed"
-    fi
-
     default
     # ensure build scripts are executable
     chmod +x "${S}/"*.sh || die
