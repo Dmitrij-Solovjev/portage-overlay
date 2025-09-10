@@ -46,7 +46,7 @@ RDEPEND=""
 
 src_prepare() {
     # accommodate GitHub commit-named archive: rename extracted dir to expected ${PV}
-    _GITDIR="${WORKDIR}/llvm-mingw-e455d4c3cb470216a130ca7b13f68977c2658c88"
+    _GITDIR="${WORKDIR}/llvm-mingw-master"
     if [[ -d "${_GITDIR}" && ! -d "${WORKDIR}/llvm-mingw-${PV}" ]]; then
         mv "${_GITDIR}" "${WORKDIR}/llvm-mingw-${PV}" || die "rename source dir failed"
     fi
