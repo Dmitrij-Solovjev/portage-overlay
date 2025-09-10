@@ -8,8 +8,7 @@ HOMEPAGE="https://github.com/mstorsjo/llvm-mingw"
 
 # Fetch a specific commit as a tarball (pinned commit e455d4c3...)
 SRC_URI="https://github.com/mstorsjo/llvm-mingw/archive/e455d4c3cb470216a130ca7b13f68977c2658c88.tar.gz -> ${PV}.tar.gz"
-# если хотите прямо на конкретный коммит, можно вместо master.tar.gz указать:
-# https://github.com/mstorsjo/llvm-mingw/archive/e455d4c3cb470216a130ca7b13f68977c2658c88.tar.gz -> ${PV}.tar.gz
+
 
 # Upstream contains multiple licenses for the different components.
 LICENSE="Apache-2.0-with-LLVM-exceptions BSD MIT ZLIB"
@@ -46,6 +45,12 @@ BDEPEND="
 RDEPEND=""
 
 src_prepare() {
+    # accommodate GitHub commit-named archive: rename extracted dir to expected ${PV}
+    _GITDIR="${WORKDIR}/llvm-mingw-e455d4c3cb470216a130ca7b13f68977c2658c88"
+    if [[ -d "${_GITDIR}" && ! -d "${WORKDIR}/llvm-mingw-${PV}" ]]; then
+        mv "${_GITDIR}" "${WORKDIR}/llvm-mingw-${PV}" || die "rename source dir failed"
+    fi
+
     default
     # ensure build scripts are executable
     chmod +x "${S}/"*.sh || die
