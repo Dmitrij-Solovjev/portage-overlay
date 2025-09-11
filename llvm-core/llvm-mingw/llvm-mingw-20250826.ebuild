@@ -74,17 +74,39 @@ src_compile() {
 
 src_install() {
     local dest="/usr/lib/llvm-mingw/${PV}"
+
+    # Сохраним старые переменные (чтобы восстановить позже)
+    local _save_STRIP="${STRIP-}"
+    local _save_RANLIB="${RANLIB-}"
+    local _save_AR="${AR-}"
+
+    # Делать strip/ranlib no-op во время установки (они портят PE/COFF import libs)
+    export STRIP="/bin/true"
+    export RANLIB="/bin/true"
+    # AR желательно оставить хостовым ar (или явно указать), чтобы ar не перепутал
+    export AR="${AR:-/usr/bin/ar}"
+
     dodir "${dest}" || die
-    cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
+    cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || {
+        # восстановление при ошибке
+        export STRIP="${_save_STRIP}"
+        export RANLIB="${_save_RANLIB}"
+        export AR="${_save_AR}"
+        die "cp failed"
+    }
 
     # Create a stable 'current' symlink pointing to this version
     dodir /usr/lib/llvm-mingw
     dosym "${dest}" "/usr/lib/llvm-mingw/current" || die
 
-
+    # Restore STRIP/RANLIB/AR
+    export STRIP="${_save_STRIP}"
+    export RANLIB="${_save_RANLIB}"
+    export AR="${_save_AR}"
 
     einstalldocs
 }
+
 
 multilib_src_install_all() {
     # Add PATH entry via env.d (like official llvm ebuilds do)
