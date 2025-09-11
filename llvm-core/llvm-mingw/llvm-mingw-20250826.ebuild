@@ -75,27 +75,53 @@ src_compile() {
 src_install() {
     local dest="/usr/lib/llvm-mingw/${PV}"
     dodir "${dest}" || die
+
+    # Скопировать собранный toolchain в image
     cp -a "${LLVMMINGW_OUT}/." "${ED}${dest}" || die
 
     # Create a stable 'current' symlink pointing to this version
     dodir /usr/lib/llvm-mingw
     dosym "${dest}" "/usr/lib/llvm-mingw/current" || die
 
+    # --- Собираем LDPATHs: топ-уровневый lib + все triplet/lib ---
+    local -a _ldpaths
+    _ldpaths+=( "${EPREFIX}${dest}/lib" )
 
+    local d rel
+    for d in "${ED}${dest}"/*/lib; do
+        [[ -d "${d}" ]] || continue
+        rel="${d#${ED}}"
+        _ldpaths+=( "${EPREFIX}${rel}" )
+    done
 
+    local _ldpath_str
+    _ldpath_str="$( IFS=:; echo "${_ldpaths[*]}" )"
+
+    # --- Создаём env.d (newenvd положит файл в image) ---
+    # выберите порядковый номер, чтобы не конфликтовать с другими 60llvm-* файлами
+    local revord=9978
+
+    newenvd - "60llvm-mingw-${revord}" <<- _EOF_
+PATH="${EPREFIX}${dest}/bin"
+ROOTPATH="${EPREFIX}${dest}/bin"
+LDPATH="${_ldpath_str}"
+_EOF_
+
+    # Документация/мануалы
     einstalldocs
 }
 
-multilib_src_install_all() {
-    # Add PATH entry via env.d (like official llvm ebuilds do)
-    newenvd - "60llvm-mingw" <<-_EOF_
-PATH="${EPREFIX}/usr/lib/llvm-mingw/${PV}/bin"
-ROOTPATH="${EPREFIX}/usr/lib/llvm-mingw/${PV}/bin"
-_EOF_
-}
 
 pkg_postinst() {
     elog "llvm-mingw ${PV} installed to /usr/lib/llvm-mingw/${PV}"
     elog "Add /usr/lib/llvm-mingw/${PV}/bin to PATH or use triplet-prefixed tools in /usr/bin"
+
+    elog "If Portage attempts to strip/ranlib Windows import-libs, merge may fail."
+    elog "To avoid that, add a per-package env to disable strip for this package:"
+    elog "  create /etc/portage/env/llvm-mingw with: FEATURES=\"nostrip\""
+    elog "  and add to /etc/portage/package.env:"
+    elog "    =llvm-core/llvm-mingw-${PV} llvm-mingw"
+    elog "Then run: sudo env-update && . /etc/profile (or start a new shell)."
 }
+
 
