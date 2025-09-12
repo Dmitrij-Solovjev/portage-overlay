@@ -47,6 +47,9 @@ BDEPEND="
 			llvm-core/llvm:${LLVM_SLOT}=
 		')
 	)
+	mingw_dlls? (
+		llvm-core/llvm-ming
+	)
 "
 RDEPEND="
 	dev-libs/xxhash
@@ -68,6 +71,7 @@ RDEPEND="
 DEPEND="
 	>=sys-kernel/linux-headers-6.14
 	${RDEPEND}
+
 "
 
 PATCHES="
@@ -76,13 +80,16 @@ PATCHES="
 	${FILESDIR}/${PN}-2503-thunkgen-gcc-install-dir.patch
 "
 
-IUSE="crossdev-toolchain +fexconfig +qt6 thunks"
+IUSE="crossdev-toolchain +fexconfig +qt6 thunks mingw_dlls"
 
 REQUIRED_USE="
 	crossdev-toolchain? ( thunks )
 	fexconfig? ( qt6 )
 	thunks? ( ${LLVM_REQUIRED_USE} )
 "
+
+# директория внутри этапа установки, куда положим dll внутри ED
+FEX_DLL_DIR="/usr/lib/fex-dll-libs"
 
 my-test-flag-PROG() {
 	local comp=$1
@@ -195,6 +202,12 @@ pkg_pretend() {
 	errmsg="Unable to find a working ARCH compiler on your system. You need to install one using crossdev."
 	find_compiler 'x86_64*-linux-gnu-gcc' >/dev/null || die "${errmsg/ARCH/x86_64}"
 	find_compiler 'i?86*-linux-gnu-gcc' >/dev/null || find_compiler 'x86_64*-linux-gnu-gcc' -m32 >/dev/null || die "${errmsg/ARCH/i686}"
+	
+	# If user asked to build windows dlls, ensure llvm-mingw toolchain is available
+	if use mingw_dlls; then
+		local mm_err="mingw dll build requested (mingw_dlls USE), but llvm-mingw toolchain not found in PATH. Install llvm-mingw and add its bin to PATH."
+		type -P arm64ec-w64-mingw32-clang >/dev/null 2>&1 || type -P aarch64-w64-mingw32-clang >/dev/null 2>&1 || die "${mm_err}"
+	fi
 }
 
 src_unpack() {
@@ -306,6 +319,76 @@ src_configure() {
 	cmake_src_configure
 }
 
+build_win_dlls() {
+	use mingw_dlls || return
+
+	einfo "Building Windows DLLs (arm64ec & wow64) via llvm-mingw"
+
+	# попытка найти llvm-mingw bin в PATH (ищем один из ожидаемых компиляторов)
+	local mm_bin=""
+	if type -P arm64ec-w64-mingw32-clang >/dev/null 2>&1; then
+		mm_bin="$(dirname "$(type -P arm64ec-w64-mingw32-clang)")"
+	elif type -P aarch64-w64-mingw32-clang >/dev/null 2>&1; then
+		mm_bin="$(dirname "$(type -P aarch64-w64-mingw32-clang)")"
+	elif [[ -d "${HOME}/llvm-mingw/bin" ]]; then
+		mm_bin="${HOME}/llvm-mingw/bin"
+	fi
+
+	[[ -n "${mm_bin}" ]] || die "llvm-mingw toolchain not found. Install it and ensure its bin is in PATH."
+
+	# временно добавить llvm-mingw в PATH
+	local old_PATH="${PATH}"
+	PATH="${mm_bin}:${PATH}"
+
+	# build dirs inside WORKDIR
+	local builddir outdir
+	outdir="${ED}/${FEX_DLL_DIR}"
+	mkdir -p "${outdir}" || die "Failed to create ${outdir}"
+
+	# helper: configure+build+copy for a given triple and target name
+	_build_one() {
+		local triple="$1"; local target="$2"; local buildname="$3"
+		builddir="${WORKDIR}/${buildname}"
+		cmake -E make_directory "${builddir}" || die "mkdir ${builddir}"
+		(
+			cd "${builddir}" || die
+			cmake "${S}" \
+				-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+				-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake" \
+				-DMINGW_TRIPLE="${triple}" \
+				-DBUILD_TESTS=False \
+				-G Ninja || die "cmake config for ${triple}"
+			cmake --build . --target "${target}" --config RelWithDebInfo || die "cmake build ${target}"
+		)
+		# возможные пути бинарников (следуя Hangover/GitHub репо)
+		local candidates=("${builddir}/Bin/lib${target}.dll" "${builddir}/Bin/lib${target}.dll" "${builddir}/Bin/lib${target}.dll")
+		# Try common names too (arm64ecfex/wow64fex build may produce libarm64ecfex.dll etc).
+		if [[ -f "${builddir}/Bin/lib${target}.dll" ]]; then
+			cp -a "${builddir}/Bin/lib${target}.dll" "${outdir}/" || die "copy dll failed"
+		else
+			# try wildcard copy (лучше не рушить сборку, но предупредим)
+			local found
+			found=$(ls "${builddir}/Bin/" 2>/dev/null | grep -E '\.dll$' | head -n1 || true)
+			if [[ -n "${found}" ]]; then
+				cp -a "${builddir}/Bin/${found}" "${outdir}/" || die "copy dll failed"
+			else
+				ewarn "No dll built for ${target} in ${builddir}/Bin/"
+			fi
+		fi
+	}
+
+	# arm64ec target (named arm64ecfex in many projects)
+	_build_one "arm64ec-w64-mingw32" "arm64ecfex" "build_ec"
+
+	# wow64 target (aarch64-w64-mingw32 -> wow64fex)
+	_build_one "aarch64-w64-mingw32" "wow64fex" "build_pe"
+
+	# restore PATH
+	PATH="${old_PATH}"
+	einfo "Windows DLLs installed to ${outdir}"
+}
+
+
 src_install() {
 	cmake_src_install
 	tc-is-lto && dostrip -x /usr/lib/libFEXCore.a
@@ -314,6 +397,8 @@ src_install() {
 		dostrip -x /usr/share/fex-emu/GuestThunks{,_32}/
 		PATH="${oldpath}"
 	fi
+	
+	build_win_dlls
 }
 
 pkg_postinst() {
