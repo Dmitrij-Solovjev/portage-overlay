@@ -293,6 +293,9 @@ src_configure() {
 		-DBUILD_FEXCONFIG=$(usex fexconfig)
 		-DBUILD_THUNKS=$(usex thunks)
 		-DENABLE_CLANG_THUNKS=False
+		-DMINGW_TRIPLE=arm64ec-w64-mingw32
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo
+		-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake"
 	)
 
 	if use thunks; then
@@ -329,156 +332,6 @@ src_configure() {
 	cmake_src_configure
 }
 
-build_win_dlls() {
-	use mingw_dlls || return
-
-	einfo "Building Windows DLLs (arm64ec & wow64) via llvm-mingw"
-
-	# Найдём llvm-mingw bin (ищем несколько возможных мест)
-	local mm_bin mm_root mm_arch_libdir
-	for candidate in \
-		"$(type -P arm64ec-w64-mingw32-clang 2>/dev/null)" \
-		"$(type -P aarch64-w64-mingw32-clang 2>/dev/null)" \
-		"${HOME}/llvm-mingw/bin/arm64ec-w64-mingw32-clang" \
-		"${HOME}/llvm-mingw/bin/aarch64-w64-mingw32-clang" \
-		"/usr/lib/llvm-mingw/"*/bin/arm64ec-w64-mingw32-clang \
-		"/usr/lib/llvm-mingw/"*/bin/aarch64-w64-mingw32-clang \
-		"/opt/llvm-mingw/bin/arm64ec-w64-mingw32-clang" \
-		"/opt/llvm-mingw/bin/aarch64-w64-mingw32-clang"
-	do
-		# expand glob candidate and test
-		local path
-		for path in ${candidate}; do
-			[[ -x "${path}" ]] || continue
-			mm_bin="$(dirname "${path}")"
-			break 2
-		done
-	done
-
-	[[ -n "${mm_bin}" ]] || die "llvm-mingw toolchain not found (looked for arm64ec/aarch64 clang). Install llvm-mingw and add its bin to PATH."
-
-	# временно добавить llvm-mingw в PATH, чтобы cmake нашёл нужный clang/ld/lld
-	local old_PATH="${PATH}"
-	PATH="${mm_bin}:${PATH}"
-
-	# базовый корень (например /usr/lib/llvm-mingw/20250826)
-	mm_root="${mm_bin%/bin}"
-
-	# Попробуем найти архитектурную папку с либами (aarch64-w64-mingw32 или arm64ec-w64-mingw32)
-	if [[ -d "${mm_root}/aarch64-w64-mingw32/lib" ]]; then
-		mm_arch_libdir="${mm_root}/aarch64-w64-mingw32/lib"
-	elif [[ -d "${mm_root}/arm64ec-w64-mingw32/lib" ]]; then
-		mm_arch_libdir="${mm_root}/arm64ec-w64-mingw32/lib"
-	elif [[ -d "${mm_root}/lib" ]]; then
-		mm_arch_libdir="${mm_root}/lib"
-	else
-		# fallback: попробуем любые lib-папки внутри mm_root
-		mm_arch_libdir="$(find "${mm_root}" -maxdepth 2 -type d -name 'lib*' | head -n1 || true)"
-	fi
-
-	[[ -n "${mm_arch_libdir}" ]] || die "Failed to locate llvm-mingw lib directory under ${mm_root}"
-
-	einfo "Using llvm-mingw bin: ${mm_bin}, arch libdir: ${mm_arch_libdir}"
-
-	# Проверка, что vendored externals присутствуют
-	[[ -d "${S}/External/xxhash/cmake_unofficial" ]] || die "Missing vendored xxhash at ${S}/External/xxhash/cmake_unofficial"
-	[[ -f "${S}/External/fmt/CMakeLists.txt" ]] || die "Missing vendored fmt at ${S}/External/fmt/CMakeLists.txt"
-
-	# выходная директория внутри пакета (ED)
-	local outdir="${ED}/${FEX_DLL_DIR}"
-	mkdir -p "${outdir}" || die "Failed to create ${outdir}"
-
-	# helper: configure+build+copy для конкретной тройки и таргета
-	_build_one() {
-		local triple="$1"; local target="$2"; local buildname="$3"
-		local builddir="${WORKDIR}/${buildname}"
-
-		cmake -E make_directory "${builddir}" || die "mkdir ${builddir}"
-		(
-			cd "${builddir}" || die
-
-			# Собираем список локальных .a, которые нужно принудительно пройти группой.
-			# Сюда добавляем наиболее критичные - xxhash, fmt, libntdll_ex и потенциальные FEX артефакты.
-			local GROUP_LIBS=""
-			local cand
-			# общие кандидаты (могут не существовать в момент конфигурации, поэтому проверяем)
-			for cand in \
-				"${S}/External/xxhash/cmake_unofficial/libxxhash.a" \
-				"${S}/External/fmt/libfmt.a" \
-				"${S}/Source/Windows/libntdll_ex.a" \
-				"${S}/Source/Common/libCommon.a" \
-				"${S}/FEXCore/Source/libFEXCore_Base.a" \
-				"${builddir}/FEXCore/Source/libFEXCore_Base.a" \
-				"${builddir}/FEXCore/Source/libJemallocLibs.a" \
-				"${builddir}/FEXCore/Source/libFEXCore_Base.a"
-			do
-				[[ -f "${cand}" ]] && GROUP_LIBS="${GROUP_LIBS} ${cand}"
-			done
-
-			# Попробуем добавить libgcc из toolchain, если есть
-			if [[ -f "${mm_arch_libdir}/libgcc.a" ]]; then
-				GROUP_LIBS="${GROUP_LIBS} ${mm_arch_libdir}/libgcc.a"
-			fi
-
-			# Уберём возможные дубли и нач/конец пустого списка корректно обработаем ниже
-			# Формируем флаги линкера
-			local start_group_flag="" end_group_flag=""
-			[[ -n "${GROUP_LIBS// /}" ]] && start_group_flag="-Wl,--start-group ${GROUP_LIBS} -Wl,--end-group"
-
-			# Конфигурируем cmake для mingw-цели
-			cmake "${S}" \
-				-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-				-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake" \
-				-DMINGW_TRIPLE="${triple}" \
-				-DBUILD_TESTS=False \
-				-G Ninja \
-				-DCMAKE_CXX_FLAGS="-stdlib=libc++ ${CXXFLAGS}" \
-				-DCMAKE_C_FLAGS="${CFLAGS}" \
-				-DCMAKE_SHARED_LINKER_FLAGS="-L${mm_arch_libdir} ${start_group_flag} -lc++ -lc++abi -lunwind" \
-				-DCMAKE_EXE_LINKER_FLAGS="-L${mm_arch_libdir} -lc++ -lc++abi -lunwind" || die "cmake config for ${triple}"
-
-			# Собираем таргет
-			cmake --build . --target "${target}" --config RelWithDebInfo || die "cmake build ${target}"
-		)
-
-		# Copy resulting DLL into ${outdir}
-		local dll_paths=(
-			"${builddir}/Bin/lib${target}.dll"
-			"${builddir}/Bin/${target}.dll"
-			"${builddir}/Bin/"*.dll
-			"${builddir}/lib${target}.dll"
-		)
-		local found=0
-		for cand in "${dll_paths[@]}"; do
-			for f in ${cand}; do
-				[[ -f "${f}" ]] || continue
-				cp -a "${f}" "${outdir}/" || die "Failed to copy ${f} -> ${outdir}"
-				found=1
-			done
-			(( found )) && break
-		done
-
-		if [[ ${found} -eq 0 ]]; then
-			ewarn "No dll found for ${target} in ${builddir}/Bin/. Inspect builddir."
-			# не фаталим — но сообщаем
-		else
-			einfo "Installed built dll(s) for ${target} into ${outdir}"
-		fi
-	}
-
-	# build arm64ec (арм64 ec)
-	_build_one "arm64ec-w64-mingw32" "arm64ecfex" "build_ec"
-
-	# build wow64 / pe (aarch64)
-	_build_one "aarch64-w64-mingw32" "wow64fex" "build_pe"
-
-	# restore PATH
-	PATH="${old_PATH}"
-
-	einfo "Windows DLL build finished. DLLs (если были собраны) лежат в ${outdir}"
-}
-
-
 src_install() {
 	cmake_src_install
 	tc-is-lto && dostrip -x /usr/lib/libFEXCore.a
@@ -487,8 +340,6 @@ src_install() {
 		dostrip -x /usr/share/fex-emu/GuestThunks{,_32}/
 		PATH="${oldpath}"
 	fi
-	
-	build_win_dlls
 }
 
 pkg_postinst() {
