@@ -20,7 +20,6 @@ ROBIN_MAP_HASH="d5683d9f1891e5b04e3e3b2192b5349dc8d814ea"
 XXHASH_HASH="bbb27a5efb85b92a0486cf361a8635715a53f6ba"
 FMT_HASH="20c8fdad0605a1627a3f6d15cad693a3fbe2ecbf"
 
-
 # This need to be vendored since thunk generator does not support the latest version
 VULKAN_HEADERS_HASH="cacef3039d277c448c89336290ec3937270b0996"
 
@@ -29,13 +28,13 @@ SRC_URI="
 	https://github.com/FEX-Emu/jemalloc/archive/${JEMALLOC_GLIBC_HASH}.tar.gz -> jemalloc-glibc-${JEMALLOC_GLIBC_HASH}.tar.gz
 	https://github.com/Sonicadvance1/cpp-optparse/archive/${CPP_OPTPARSE_HASH}.tar.gz -> cpp-optparse-${CPP_OPTPARSE_HASH}.tar.gz
 	https://github.com/FEX-Emu/robin-map/archive/${ROBIN_MAP_HASH}.tar.gz -> robin-map-${ROBIN_MAP_HASH}.tar.gz
+	https://github.com/Cyan4973/xxHash/archive/${XXHASH_HASH}.tar.gz -> xxhash-${XXHASH_HASH}.tar.gz
+	https://github.com/fmtlib/fmt/archive/${FMT_HASH}.tar.gz -> fmt-${FMT_HASH}.tar.gz
 	thunks? (
 		https://github.com/KhronosGroup/Vulkan-Headers/archive/${VULKAN_HEADERS_HASH}.tar.gz -> Vulkan-Headers-${VULKAN_HEADERS_HASH}.tar.gz
 	)
 	https://github.com/FEX-Emu/${PN}/archive/refs/tags/${P}.tar.gz
-	
-	https://github.com/Cyan4973/xxHash/archive/${XXHASH_HASH}.tar.gz -> xxhash-${XXHASH_HASH}.tar.gz
-	https://github.com/fmtlib/fmt/archive/${FMT_HASH}.tar.gz -> fmt-${FMT_HASH}.tar.gz
+
 "
 
 S="${WORKDIR}/${PN}-${P}"
