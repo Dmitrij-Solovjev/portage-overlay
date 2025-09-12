@@ -82,78 +82,10 @@ src_configure() {
 
 src_install() {
 	cmake_src_install
-
-	# ------------------------------------------------------------
-	# Install wowbox64 (Windows/Mingw) artifacts if they were built
-	# - Only search the wowbox64 sub-build directory to avoid accidentally
-	#   copying files from the image tree (${D}) into the image (which
-	#   causes ${D}/${D} installs and aborts the install QA check).
-	# ------------------------------------------------------------
-
-	local wow_install_dir="${D}/usr/lib/box64-x86_64-linux-gnu"
-	dodir "${wow_install_dir}" || true
-
-	# Path where the wowbox64 sub-build commonly lives
-	local wow_build_dir="${BUILD_DIR}/wowbox64-prefix/src/wowbox64-build"
-	if [[ -d "${wow_build_dir}" ]]; then
-		find "${wow_build_dir}" -maxdepth 4 -type f \
-			\( -iname 'wowbox64.*' -o -iname 'wow64.*' -o -iname '*.dll' -o -iname '*.a' -o -iname '*.lib' -o -iname '*.so' \) -print0 2>/dev/null | \
-		while IFS= read -r -d '' _f; do
-			# Skip any files that (unexpectedly) live under ${D} to avoid
-			# installing the image into itself (which causes ${D}/${D}).
-			case "${_f}" in
-				"${D}"/*) continue ;;
-			esac
-			doins "${_f}" "${wow_install_dir}/"
-		done
-	fi
-
-	# ------------------------------------------------------------
-	# Selective strip: only strip native AArch64 files. Skips x86_64/PE/etc.
-	# This avoids "cannot determine file format" from cross-strip tools.
-	# ------------------------------------------------------------
-	if command -v readelf >/dev/null 2>&1; then
-		find "${D}" -type f -print0 | while IFS= read -r -d '' f; do
-			[ -f "${f}" ] || continue
-			# skip docs
-			case "${f}" in
-				*/share/doc/*|*/usr/share/doc/*) continue ;; 
-			esac
-			if readelf -h "${f}" >/dev/null 2>&1; then
-				machine=$(readelf -h "${f}" | awk -F: '/Machine:/ {gsub(/^ +| +$/, "", $2); print $2}')
-				case "${machine}" in
-					*AArch64*|*Advanced\ ARM\ AArch64*|*ARM\ aarch64*)
-						${STRIP:-strip} --strip-unneeded "${f}" 2>/dev/null || true
-						;;
-					*)
-						# non-native: do not touch
-						;;
-				esac
-			fi
-		done
-	else
-		ewarn "readelf not found: skipping selective strip to avoid corrupting cross-arch files."
-	fi
+	dostrip -x "usr/lib/x86_64-linux-gnu/*"
 }
 
 pkg_postinst() {
 	optfeature "OpenGL for GLES devices" \
 		"media-libs/gl4es"
-
-	if [[ ${ED} == 1 ]]; then
-		cat << 'EOF'
-Note about box64 packaging:
-
-This package may build and install x86_64 runtime libraries and optional
-WowBox64 artifacts into:
-  /usr/lib/box64-x86_64-linux-gnu/
-
-Those files are intended for the emulated x86_64 environment and are NOT
-native ARM64 binaries. QA tools (strip/scanelf) may show warnings such as
-"Невозможно определить формат входного файла" or "Unresolved soname
-dependencies" for these files; this is expected and benign. If you do not
-want the WowBox64/Mingw part, rebuild with USE="-wowbox64".
-EOF
-	fi
 }
-
