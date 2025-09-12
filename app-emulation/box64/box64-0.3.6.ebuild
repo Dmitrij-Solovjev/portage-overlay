@@ -85,25 +85,26 @@ src_install() {
 
 	# ------------------------------------------------------------
 	# Install wowbox64 (Windows/Mingw) artifacts if they were built
-	# - Some builds produce wowbox64.dll and import-libs (.a/.lib) in the
-	#   sub-build directory (wowbox64-prefix/src/wowbox64-build/).
-	# - We will detect those artifacts in ${WORKDIR} and install them into
-	#   ${D}/usr/lib/box64-x86_64-linux-gnu/ so box64 can use them at runtime.
+	# - Only search the wowbox64 sub-build directory to avoid accidentally
+	#   copying files from the image tree (${D}) into the image (which
+	#   causes ${D}/${D} installs and aborts the install QA check).
 	# ------------------------------------------------------------
 
 	local wow_install_dir="${D}/usr/lib/box64-x86_64-linux-gnu"
 	dodir "${wow_install_dir}" || true
 
-	# copy any relevant wow/wowbox64 files from the build tree
-	if command -v find >/dev/null 2>&1; then
-		find "${WORKDIR}" -type f \
+	# Path where the wowbox64 sub-build commonly lives
+	local wow_build_dir="${BUILD_DIR}/wowbox64-prefix/src/wowbox64-build"
+	if [[ -d "${wow_build_dir}" ]]; then
+		find "${wow_build_dir}" -maxdepth 4 -type f \
 			\( -iname 'wowbox64.*' -o -iname 'wow64.*' -o -iname '*.dll' -o -iname '*.a' -o -iname '*.lib' -o -iname '*.so' \) -print0 2>/dev/null | \
 		while IFS= read -r -d '' _f; do
+			# Skip any files that (unexpectedly) live under ${D} to avoid
+			# installing the image into itself (which causes ${D}/${D}).
 			case "${_f}" in
-				*.dll|*.a|*.lib|*.so)
-					doins "${_f}" "${wow_install_dir}/"
-					;;
+				"${D}"/*) continue ;;
 			esac
+			doins "${_f}" "${wow_install_dir}/"
 		done
 	fi
 
