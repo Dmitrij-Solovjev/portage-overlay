@@ -16,6 +16,11 @@ JEMALLOC_GLIBC_HASH="8436195ad5e1bc347d9b39743af3d29abee59f06"
 CPP_OPTPARSE_HASH="9f94388a339fcbb0bc95c17768eb786c85988f6e"
 ROBIN_MAP_HASH="d5683d9f1891e5b04e3e3b2192b5349dc8d814ea"
 
+# for mingw_dlls
+XXHASH_HASH="bbb27a5efb85b92a0486cf361a8635715a53f6ba"
+FMT_HASH="20c8fdad0605a1627a3f6d15cad693a3fbe2ecbf"
+
+
 # This need to be vendored since thunk generator does not support the latest version
 VULKAN_HEADERS_HASH="cacef3039d277c448c89336290ec3937270b0996"
 
@@ -28,6 +33,9 @@ SRC_URI="
 		https://github.com/KhronosGroup/Vulkan-Headers/archive/${VULKAN_HEADERS_HASH}.tar.gz -> Vulkan-Headers-${VULKAN_HEADERS_HASH}.tar.gz
 	)
 	https://github.com/FEX-Emu/${PN}/archive/refs/tags/${P}.tar.gz
+	
+	https://github.com/Cyan4973/xxHash/archive/${XXHASH_HASH}.tar.gz -> xxhash-${XXHASH_HASH}.tar.gz
+	https://github.com/fmtlib/fmt/archive/${FMT_HASH}.tar.gz -> fmt-${FMT_HASH}.tar.gz
 "
 
 S="${WORKDIR}/${PN}-${P}"
