@@ -78,7 +78,7 @@ PATCHES="
 	${FILESDIR}/${PN}-2503-unvendor-drm-headers.patch
 	${FILESDIR}/${PN}-2507-thunks-toolchain-paths.patch
 	${FILESDIR}/${PN}-2503-thunkgen-gcc-install-dir.patch
-	${FILESDIR}/${PN}-2509-custom-hangover.patch
+	${FILESDIR}/${PN}-2508.1-custom-hangover.patch
 "
 
 IUSE="crossdev-toolchain +fexconfig +qt6 thunks mingw_dlls"
