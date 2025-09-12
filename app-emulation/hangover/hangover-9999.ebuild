@@ -34,5 +34,65 @@ RDEPEND="
     box64? ( app-emulation/box64[wowbox64] )
 "
 
-# Не должно быть никаких символов, не относящихся к правильному синтаксису зависимости в DEPEND или RDEPEND
+LLVM_MINGW_PATH="/usr/lib/llvm-mingw64/bin"
+
+
+src_unpack() {
+    git-r3_src_unpack
+    pushd "${S}" >/dev/null || die
+    git submodule update --init --recursive || die
+    popd >/dev/null || die
+}
+
+src_configure() {
+    export PATH="${LLVM_MINGW_PATH}:${PATH}"
+
+    mkdir -p wine/build || die
+    cd wine/build || die
+    ../configure \
+        --disable-tests \
+        --with-mingw=clang \
+        --enable-archs=arm64ec,aarch64,i386 || die
+}
+
+src_compile() {
+    cd "${S}/wine/build" || die
+    emake -j$(nproc)
+
+    if use fex; then
+        mkdir -p "${S}/fex/build_ec" || die
+        cd "${S}/fex/build_ec" || die
+        cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
+              -DENABLE_LTO=False \
+              -DMINGW_TRIPLE=arm64ec-w64-mingw32 \
+              -DBUILD_TESTS=False .. || die
+        emake arm64ecfex
+    fi
+
+    if use box64; then
+        mkdir -p "${S}/box64/build_pe" || die
+        cd "${S}/box64/build_pe" || die
+        cmake -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DARM_DYNAREC=ON \
+              -DWOW64=ON .. || die
+        emake wowbox64
+    fi
+}
+
+src_install() {
+    cd "${S}/wine/build" || die
+    emake DESTDIR="${D}" install || die
+
+    if use fex; then
+        insinto /usr/lib/wine/aarch64-windows/
+        doins "${S}/fex/build_ec/Bin/libarm64ecfex.dll" || die
+    fi
+
+    if use box64; then
+        insinto /usr/lib/wine/aarch64-windows/
+        doins "${S}/box64/build_pe/wowbox64-prefix/src/wowbox64-build/wowbox64.dll" || die
+    fi
+}
 
