@@ -70,12 +70,6 @@ DEPEND="
 	${RDEPEND}
 "
 
-PATCHES="
-	${FILESDIR}/${PN}-2503-unvendor-drm-headers.patch
-	${FILESDIR}/${PN}-2507-thunks-toolchain-paths.patch
-	${FILESDIR}/${PN}-2503-thunkgen-gcc-install-dir.patch
-"
-
 IUSE="crossdev-toolchain +fexconfig +qt6 thunks"
 
 REQUIRED_USE="
