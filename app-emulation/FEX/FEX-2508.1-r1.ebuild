@@ -48,7 +48,7 @@ BDEPEND="
 		')
 	)
 	mingw_dlls? (
-		llvm-core/llvm-ming
+		llvm-core/llvm-mingw
 	)
 "
 RDEPEND="
