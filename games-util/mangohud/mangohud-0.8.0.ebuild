@@ -41,7 +41,7 @@ else
 	SRC_URI="https://github.com/flightlessmango/MangoHud/releases/download/v${MY_PV2}/MangoHud-v${MY_PV1}-Source.tar.xz"
 	S="${WORKDIR}/MangoHud-v${MY_PV2}"
 
-	KEYWORDS="~amd64"
+	KEYWORDS="~amd64 ~arm64"
 fi
 
 LICENSE="MIT"
