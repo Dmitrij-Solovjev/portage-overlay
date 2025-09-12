@@ -365,6 +365,7 @@ build_win_dlls() {
 			cmake "${S}" \
 				-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 				-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake" \
+				-DENABLE_LTO=False \
 				-DMINGW_TRIPLE="${triple}" \
 				-DBUILD_TESTS=False \
 				-G Ninja || die "cmake config for ${triple}"
