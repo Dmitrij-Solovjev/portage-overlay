@@ -225,7 +225,7 @@ src_unpack() {
 		jemalloc_glibc "jemalloc-${JEMALLOC_GLIBC_HASH}"
 		robin-map "robin-map-${ROBIN_MAP_HASH}"
 		fmt "fmt-${FMT_HASH}"
-		xxhash "xxHash-${XXHASH_HASH}"
+		xxhash "xxhash-${XXHASH_HASH}"
 	)
 	use thunks && deps[Vulkan-Headers]="Vulkan-Headers-${VULKAN_HEADERS_HASH}"
 	for dep in "${!deps[@]}"; do
@@ -293,9 +293,6 @@ src_configure() {
 		-DBUILD_FEXCONFIG=$(usex fexconfig)
 		-DBUILD_THUNKS=$(usex thunks)
 		-DENABLE_CLANG_THUNKS=False
-		-DMINGW_TRIPLE=arm64ec-w64-mingw32
-		-DCMAKE_BUILD_TYPE=RelWithDebInfo
-		-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake"
 	)
 
 	if use thunks; then
@@ -332,6 +329,76 @@ src_configure() {
 	cmake_src_configure
 }
 
+build_win_dlls() {
+	use mingw_dlls || return
+
+	einfo "Building Windows DLLs (arm64ec & wow64) via llvm-mingw"
+
+	# попытка найти llvm-mingw bin в PATH (ищем один из ожидаемых компиляторов)
+	local mm_bin=""
+	if type -P arm64ec-w64-mingw32-clang >/dev/null 2>&1; then
+		mm_bin="$(dirname "$(type -P arm64ec-w64-mingw32-clang)")"
+	elif type -P aarch64-w64-mingw32-clang >/dev/null 2>&1; then
+		mm_bin="$(dirname "$(type -P aarch64-w64-mingw32-clang)")"
+	elif [[ -d "${HOME}/llvm-mingw/bin" ]]; then
+		mm_bin="${HOME}/llvm-mingw/bin"
+	fi
+
+	[[ -n "${mm_bin}" ]] || die "llvm-mingw toolchain not found. Install it and ensure its bin is in PATH."
+
+	# временно добавить llvm-mingw в PATH
+	local old_PATH="${PATH}"
+	PATH="${mm_bin}:${PATH}"
+
+	# build dirs inside WORKDIR
+	local builddir outdir
+	outdir="${ED}/${FEX_DLL_DIR}"
+	mkdir -p "${outdir}" || die "Failed to create ${outdir}"
+
+	# helper: configure+build+copy for a given triple and target name
+	_build_one() {
+		local triple="$1"; local target="$2"; local buildname="$3"
+		builddir="${WORKDIR}/${buildname}"
+		cmake -E make_directory "${builddir}" || die "mkdir ${builddir}"
+		(
+			cd "${builddir}" || die
+			cmake "${S}" \
+				-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+				-DCMAKE_TOOLCHAIN_FILE="${S}/Data/CMake/toolchain_mingw.cmake" \
+				-DMINGW_TRIPLE="${triple}" \
+				-DBUILD_TESTS=False \
+				-G Ninja || die "cmake config for ${triple}"
+			cmake --build . --target "${target}" --config RelWithDebInfo || die "cmake build ${target}"
+		)
+		# возможные пути бинарников (следуя Hangover/GitHub репо)
+		local candidates=("${builddir}/Bin/lib${target}.dll" "${builddir}/Bin/lib${target}.dll" "${builddir}/Bin/lib${target}.dll")
+		# Try common names too (arm64ecfex/wow64fex build may produce libarm64ecfex.dll etc).
+		if [[ -f "${builddir}/Bin/lib${target}.dll" ]]; then
+			cp -a "${builddir}/Bin/lib${target}.dll" "${outdir}/" || die "copy dll failed"
+		else
+			# try wildcard copy (лучше не рушить сборку, но предупредим)
+			local found
+			found=$(ls "${builddir}/Bin/" 2>/dev/null | grep -E '\.dll$' | head -n1 || true)
+			if [[ -n "${found}" ]]; then
+				cp -a "${builddir}/Bin/${found}" "${outdir}/" || die "copy dll failed"
+			else
+				ewarn "No dll built for ${target} in ${builddir}/Bin/"
+			fi
+		fi
+	}
+
+	# arm64ec target (named arm64ecfex in many projects)
+	_build_one "arm64ec-w64-mingw32" "arm64ecfex" "build_ec"
+
+	# wow64 target (aarch64-w64-mingw32 -> wow64fex)
+	_build_one "aarch64-w64-mingw32" "wow64fex" "build_pe"
+
+	# restore PATH
+	PATH="${old_PATH}"
+	einfo "Windows DLLs installed to ${outdir}"
+}
+
+
 src_install() {
 	cmake_src_install
 	tc-is-lto && dostrip -x /usr/lib/libFEXCore.a
@@ -340,6 +407,8 @@ src_install() {
 		dostrip -x /usr/share/fex-emu/GuestThunks{,_32}/
 		PATH="${oldpath}"
 	fi
+	
+	build_win_dlls
 }
 
 pkg_postinst() {
