@@ -83,6 +83,12 @@ src_configure() {
 src_install() {
 	cmake_src_install
 	dostrip -x "usr/lib/x86_64-linux-gnu/*"
+	
+	# Копируем wowbox64.dll, если он собран
+	if [[ -f "${BUILD_DIR}/wowbox64-prefix/src/wowbox64-build/wowbox64.dll" ]]; then
+    		insinto /usr/lib/box64-x86_64-linux-gnu
+		doins "${BUILD_DIR}/wowbox64-prefix/src/wowbox64-build/wowbox64.dll"
+	fi
 }
 
 pkg_postinst() {
