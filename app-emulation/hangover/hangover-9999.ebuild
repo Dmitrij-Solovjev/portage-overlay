@@ -12,7 +12,8 @@ EGIT_REPO_URI="https://github.com/AndreRH/hangover.git"
 LICENSE="LGPL-2.1"
 SLOT="0"
 KEYWORDS="~arm64"
-IUSE="fex box64"
+IUSE="+fex box64"
+REQUIRED_USE="^^ ( fex box64 )"
 
 # build-time deps (минимальные для сборки wine + возможных сабмодулей)
 DEPEND="
@@ -24,13 +25,13 @@ DEPEND="
     llvm-core/clang
     sys-devel/gcc
     sys-devel/binutils
-    fex? ( app-emulation/fex )
+    app-emulation/FEX[mingw_dlls]
     box64? ( app-emulation/box64[wowbox64] )
 "
 
 # runtime deps: если включён USE, зависим от внешнего пакета (он должен обеспечить DLL)
 RDEPEND="
-    fex? ( app-emulation/fex )
+    app-emulation/FEX[mingw_dlls]
     box64? ( app-emulation/box64[wowbox64] )
 "
 
@@ -60,30 +61,20 @@ src_configure() {
 src_compile() {
     cd "${S}/wine/build" || die
     emake -j$(nproc)
-
-    if use fex; then
-        mkdir -p "${S}/fex/build_ec" || die
-        cd "${S}/fex/build_ec" || die
-        cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DCMAKE_TOOLCHAIN_FILE=../Data/CMake/toolchain_mingw.cmake \
-              -DENABLE_LTO=False \
-              -DMINGW_TRIPLE=arm64ec-w64-mingw32 \
-              -DBUILD_TESTS=False .. || die
-        emake arm64ecfex
-    fi
 }
 
 src_install() {
     cd "${S}/wine/build" || die
     emake DESTDIR="${D}" install || die
 
+    insinto "${EPREFIX}/usr/local/lib/wine/aarch64-windows/"
+    doins "${EPREFIX}/usr/lib/fex-dll-libs/libarm64ecfex.dll" || die
+
     if use fex; then
-        insinto /usr/lib/wine/aarch64-windows/
-        doins "${S}/fex/build_ec/Bin/libarm64ecfex.dll" || die
+        doins "${EPREFIX}/usr/lib/fex-dll-libs/libwow64fex.dll" || die
     fi
 
     if use box64; then
-        insinto /usr/lib/wine/aarch64-windows/
-        doins /usr/lib/box64-x86_64-linux-gnu/wowbox64.dll || die
+        doins "${EPREFIX}/usr/lib/box64-x86_64-linux-gnu/wowbox64.dll" || die
     fi
 }
