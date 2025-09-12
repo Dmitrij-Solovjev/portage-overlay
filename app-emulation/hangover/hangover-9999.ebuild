@@ -36,7 +36,6 @@ RDEPEND="
 
 LLVM_MINGW_PATH="/usr/lib/llvm-mingw64/bin"
 
-
 src_unpack() {
     git-r3_src_unpack
     pushd "${S}" >/dev/null || die
@@ -44,11 +43,14 @@ src_unpack() {
     popd >/dev/null || die
 }
 
-src_configure() {
+src_prepare() {
+    default
     export PATH="${LLVM_MINGW_PATH}:${PATH}"
+}
 
-    mkdir -p wine/build || die
-    cd wine/build || die
+src_configure() {
+    mkdir -p "${S}/wine/build" || die
+    cd "${S}/wine/build" || die
     ../configure \
         --disable-tests \
         --with-mingw=clang \
@@ -69,16 +71,6 @@ src_compile() {
               -DBUILD_TESTS=False .. || die
         emake arm64ecfex
     fi
-
-    if use box64; then
-        mkdir -p "${S}/box64/build_pe" || die
-        cd "${S}/box64/build_pe" || die
-        cmake -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-              -DARM_DYNAREC=ON \
-              -DWOW64=ON .. || die
-        emake wowbox64
-    fi
 }
 
 src_install() {
@@ -92,7 +84,6 @@ src_install() {
 
     if use box64; then
         insinto /usr/lib/wine/aarch64-windows/
-        doins "${S}/box64/build_pe/wowbox64-prefix/src/wowbox64-build/wowbox64.dll" || die
+        doins /usr/lib/box64-x86_64-linux-gnu/wowbox64.dll || die
     fi
 }
-
