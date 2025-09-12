@@ -225,7 +225,7 @@ src_unpack() {
 		jemalloc_glibc "jemalloc-${JEMALLOC_GLIBC_HASH}"
 		robin-map "robin-map-${ROBIN_MAP_HASH}"
 		fmt "fmt-${FMT_HASH}"
-		xxhash "xxhash-${XXHASH_HASH}"
+		xxhash "xxHash-${XXHASH_HASH}"
 	)
 	use thunks && deps[Vulkan-Headers]="Vulkan-Headers-${VULKAN_HEADERS_HASH}"
 	for dep in "${!deps[@]}"; do
