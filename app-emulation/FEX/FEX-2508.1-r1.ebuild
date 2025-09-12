@@ -28,13 +28,13 @@ SRC_URI="
 	https://github.com/FEX-Emu/jemalloc/archive/${JEMALLOC_GLIBC_HASH}.tar.gz -> jemalloc-glibc-${JEMALLOC_GLIBC_HASH}.tar.gz
 	https://github.com/Sonicadvance1/cpp-optparse/archive/${CPP_OPTPARSE_HASH}.tar.gz -> cpp-optparse-${CPP_OPTPARSE_HASH}.tar.gz
 	https://github.com/FEX-Emu/robin-map/archive/${ROBIN_MAP_HASH}.tar.gz -> robin-map-${ROBIN_MAP_HASH}.tar.gz
-	https://github.com/Cyan4973/xxHash/archive/${XXHASH_HASH}.tar.gz -> xxhash-${XXHASH_HASH}.tar.gz
-	https://github.com/fmtlib/fmt/archive/${FMT_HASH}.tar.gz -> fmt-${FMT_HASH}.tar.gz
 	thunks? (
 		https://github.com/KhronosGroup/Vulkan-Headers/archive/${VULKAN_HEADERS_HASH}.tar.gz -> Vulkan-Headers-${VULKAN_HEADERS_HASH}.tar.gz
 	)
 	https://github.com/FEX-Emu/${PN}/archive/refs/tags/${P}.tar.gz
 
+	https://github.com/Cyan4973/xxHash/archive/${XXHASH_HASH}.tar.gz -> xxhash-${XXHASH_HASH}.tar.gz
+	https://github.com/fmtlib/fmt/archive/${FMT_HASH}.tar.gz -> fmt-${FMT_HASH}.tar.gz
 "
 
 S="${WORKDIR}/${PN}-${P}"
@@ -224,6 +224,8 @@ src_unpack() {
 		jemalloc "jemalloc-${JEMALLOC_HASH}"
 		jemalloc_glibc "jemalloc-${JEMALLOC_GLIBC_HASH}"
 		robin-map "robin-map-${ROBIN_MAP_HASH}"
+		fmt "fmt-${FMT_HASH}"
+		xxhash "xxhash-${XXHASH_HASH}"
 	)
 	use thunks && deps[Vulkan-Headers]="Vulkan-Headers-${VULKAN_HEADERS_HASH}"
 	for dep in "${!deps[@]}"; do
