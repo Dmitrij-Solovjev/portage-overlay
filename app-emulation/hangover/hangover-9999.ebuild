@@ -16,7 +16,7 @@ IUSE="fex box64"
 
 # build-time deps (минимальные для сборки wine + возможных сабмодулей)
 DEPEND="
-    dev-util/llvm-mingw64
+    llvm-core/llvm-mingw
     dev-build/cmake
     dev-build/ninja
     dev-build/make
