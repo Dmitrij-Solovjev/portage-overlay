@@ -40,7 +40,7 @@ BDEPEND="
 	llvm-core/llvm
 	thunks? (
 		!crossdev-toolchain? (
-			llvm-core/llvm-mingw
+			sys-devel/x86_64-multilib-toolchain
 		)
 		$(llvm_gen_dep '
 			llvm-core/clang:${LLVM_SLOT}=
